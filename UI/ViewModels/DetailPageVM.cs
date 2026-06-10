@@ -206,29 +206,24 @@ namespace UI.ViewModels
         private async void EditAlias_ClickAsync(object sender, RoutedEventArgs e)
         {
             var app = appData.GetApp(App.ID);
-            try
+            string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", app.Alias, (val) =>
             {
-                string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", app.Alias, (val) =>
+                if (val.Length > 15)
                 {
-                    if (val.Length > 15)
-                    {
-                        main.Error("别名最大长度为15位字符");
-                        return false;
-                    }
-                    return true;
-                });
+                    main.Error("别名最大长度为15位字符");
+                    return false;
+                }
+                return true;
+            });
 
-                //  开始更新别名
-                app.Alias = input;
-                appData.UpdateApp(app);
-                App = app;
+            if (input == null) return; //  用户取消了输入
 
-                main.Success("别名已更新");
-            }
-            catch
-            {
-                //  输入取消，无需处理异常
-            }
+            //  开始更新别名
+            app.Alias = input;
+            appData.UpdateApp(app);
+            App = app;
+
+            main.Success("别名已更新");
         }
 
 
