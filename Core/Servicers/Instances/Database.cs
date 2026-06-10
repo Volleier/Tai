@@ -1,4 +1,4 @@
-﻿using Core.Librarys.SQLite;
+using Core.Librarys.SQLite;
 using Core.Servicers.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -12,78 +12,56 @@ using System.Threading.Tasks;
 
 namespace Core.Servicers.Instances
 {
+    /// <summary>
+    /// 数据库访问协调器。
+    /// - 读操作：每次 GetReaderContext() 创建独立的 TaiDbContext，无锁，并发安全。
+    /// - 写操作：通过 SemaphoreSlim(1,1) 串行化，保证同一时间只有一个写入者。
+    /// - 写入 DbContext 在 Dispose 时自动释放信号量，无需手工调用 CloseWriter。
+    ///
+    /// 相比旧版改进：
+    /// - 移除 Thread.Sleep(1000) 忙等轮询 → SemaphoreSlim.Wait
+    /// - 移除 _readerNum / _isReading / _isWriting 脆弱状态位
+    /// - 移除 GetReaderContext 中释放 Writer 上下文的错误行为
+    /// - 统一由 using 块管理 DbContext 生命周期
+    /// </summary>
     public class Database : IDatabase
     {
-        private TaiDbContext _writerContext;
-        private readonly object _writeLocker = new object();
-        private readonly object _readLocker = new object();
-        private readonly object _closeLocker = new object();
-        private int _outTime = 60;
-        private int _readerNum = 0;
-        private bool _isWriting = false;
-        private bool _isReading = false;
+        private readonly SemaphoreSlim _writeSemaphore = new SemaphoreSlim(1, 1);
+        /// <summary>
+        /// 原子标记：0 = 信号量未持有，1 = 信号量已持有。
+        /// 防止 CloseWriter 和 DbContext.Dispose 双重释放。
+        /// </summary>
+        private int _writeSemaphoreHeld = 0;
+
         public TaiDbContext GetReaderContext()
         {
-            lock (_readLocker)
-            {
-                _isReading = true;
-                int duration = 0;
-                while (_isWriting)
-                {
-                    Thread.Sleep(1000);
-                    duration++;
-                    if (duration >= _outTime)
-                    {
-                        break;
-                    }
-                }
-                _writerContext?.Dispose();
-                _readerNum++;
-                var db = new TaiDbContext();
-                db.Database.Connection.StateChange += Connection_StateChange;
-                return db;
-            }
-        }
-
-        private void Connection_StateChange(object sender, System.Data.StateChangeEventArgs e)
-        {
-            if (e.CurrentState == System.Data.ConnectionState.Closed)
-            {
-                _readerNum--;
-                _isReading = _readerNum > 0;
-            }
-        }
-       
-        public void CloseReader()
-        {
+            //  读操作：直接创建新上下文，无需锁
+            return new TaiDbContext();
         }
 
         public TaiDbContext GetWriterContext()
         {
-            lock (_writeLocker)
-            {
-                int duration = 0;
-                while (_isWriting || _isReading)
-                {
-                    Thread.Sleep(1000);
-                    duration++;
-                    if (duration >= _outTime)
-                    {
-                        break;
-                    }
-                }
-                _isWriting = true;
-                _writerContext = new TaiDbContext();
-                return _writerContext;
-            }
+            //  写操作：获取信号量，保证串行写入
+            _writeSemaphore.Wait();
+            Interlocked.Exchange(ref _writeSemaphoreHeld, 1);
+
+            var context = new TaiDbContext();
+
+            //  注册 Dispose 回调：即使调用方忘记 CloseWriter，dispose 时也会自动释放
+            var self = this;
+            context.SetOnDisposed(() => self.TryReleaseWriter());
+
+            return context;
         }
 
-        public void CloseWriter()
+        /// <summary>
+        /// 尝试释放写入信号量。幂等：多次调用只有第一次生效。
+        /// </summary>
+        private void TryReleaseWriter()
         {
-            lock (_closeLocker)
+            if (Interlocked.Exchange(ref _writeSemaphoreHeld, 0) == 1)
             {
-                _writerContext?.Dispose();
-                _isWriting = false;
+                _writeSemaphore.Release();
             }
         }
     }

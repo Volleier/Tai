@@ -142,10 +142,7 @@ namespace Core.Servicers.Instances
                 {
                     Logger.Error($"在更新链接[{site_.Url}]时长[{duration_}]时异常，{ex}");
                 }
-                finally
-                {
-                    _database.CloseWriter();
-                }
+                //  using 块 Dispose 时自动释放写入信号量，无需手工 CloseWriter
             });
 
         }
@@ -189,7 +186,7 @@ namespace Core.Servicers.Instances
                     }
 
                     db.SaveChanges();
-                    _database.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
             });
 
@@ -342,7 +339,7 @@ namespace Core.Servicers.Instances
             {
                 var result = db.WebSiteCategories.Add(data_);
                 db.SaveChanges();
-                _database.CloseWriter();
+                //  写入信号量由 using Dispose 自动释放
                 return result;
             }
         }
@@ -355,7 +352,7 @@ namespace Core.Servicers.Instances
             {
                 db.Entry(data_).State = System.Data.Entity.EntityState.Modified;
                 db.SaveChanges();
-                _database.CloseWriter();
+                //  写入信号量由 using Dispose 自动释放
             }
         }
         #endregion
@@ -373,7 +370,7 @@ namespace Core.Servicers.Instances
                     //  删除分类
                     db.Entry(data_).State = System.Data.Entity.EntityState.Deleted;
                     db.SaveChanges();
-                    _database.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
             });
         }
@@ -430,7 +427,7 @@ namespace Core.Servicers.Instances
                     string sql = $"update WebSiteModels set CategoryID={categoryId_} where ID in ({string.Join(",", siteIds_)})";
                     db.Database.ExecuteSqlCommand(sql);
                     db.SaveChanges();
-                    _database.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
             });
         }
@@ -751,7 +748,7 @@ namespace Core.Servicers.Instances
         {
             end_ = new DateTime(end_.Year, end_.Month, DateTime.DaysInMonth(end_.Year, end_.Month));
 
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 //db.Database.ExecuteSqlCommand("update WebSiteModels set Duration=0");
 
@@ -810,7 +807,7 @@ namespace Core.Servicers.Instances
 
         public void Clear(int siteId_)
         {
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 db.Database.ExecuteSqlCommand("delete from WebBrowseLogModels  where SiteId = " + siteId_);
                 db.Database.ExecuteSqlCommand("update WebSiteModels set Duration = 0  where ID = " + siteId_);
@@ -865,7 +862,7 @@ namespace Core.Servicers.Instances
                     website.Domain = website_.Domain;
                     website.Title = website_.Title;
                     db.SaveChanges();
-                    _database.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
                 return website;
                 //string sql = $"update WebSiteModels set CategoryID={categoryId_} where ID in ({string.Join(",", siteIds_)})";

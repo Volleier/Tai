@@ -111,7 +111,6 @@ namespace Core.Servicers.Instances
                     var app = db.App.Where(m => m.Name == process_).FirstOrDefault();
                     if (app == null)
                     {
-                        _database.CloseWriter();
                         return;
                     }
 
@@ -168,10 +167,7 @@ namespace Core.Servicers.Instances
             {
                 Logger.Error($"UpdateAppDuration error!Process:{process_},Duration:{duration_},StartDateTime:{startTime_}.\r\nError:\r\n{e.Message}");
             }
-            finally
-            {
-                _database.CloseWriter();
-            }
+            //  using 块 Dispose 时自动释放写入信号量，无需手工 CloseWriter
         }
 
         public List<DailyLogModel> GetTodaylogList()
@@ -317,7 +313,7 @@ namespace Core.Servicers.Instances
         public void Clear(int appID, DateTime month)
         {
 
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
 
                 db.DailyLog.RemoveRange(
@@ -638,7 +634,7 @@ namespace Core.Servicers.Instances
         {
             end = new DateTime(end.Year, end.Month, DateTime.DaysInMonth(end.Year, end.Month));
 
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 db.Database.ExecuteSqlCommand("delete from DailyLogModels  where Date>='" + start.Date.ToString("yyyy-MM-01 00:00:00") + "' and Date<= '" + end.Date.ToString("yyyy-MM-dd 23:59:59") + "'");
 
@@ -799,7 +795,7 @@ namespace Core.Servicers.Instances
 
         public void Clear(int appID_)
         {
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 db.Database.ExecuteSqlCommand("delete from DailyLogModels  where AppModelID = " + appID_);
                 db.Database.ExecuteSqlCommand("delete from HoursLogModels  where AppModelID = " + appID_);
