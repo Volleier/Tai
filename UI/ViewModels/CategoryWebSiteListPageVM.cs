@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using UI.Controls;
 using UI.Models;
 using UI.Models.Category;
@@ -53,9 +54,12 @@ namespace UI.ViewModels
             Task.Run(() =>
             {
                 var list = _webData.GetWebSites(Category.ID);
-                CategoryWebSiteList = new System.Collections.ObjectModel.ObservableCollection<Core.Models.Db.WebSiteModel>(list);
 
-                LoadWebSiteOptionList();
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    CategoryWebSiteList = new System.Collections.ObjectModel.ObservableCollection<Core.Models.Db.WebSiteModel>(list);
+                    LoadWebSiteOptionList();
+                });
             });
         }
 
@@ -97,7 +101,29 @@ namespace UI.ViewModels
 
                 Task.Run(() =>
                 {
-                    LoadWebSiteOptionList();
+                    //  重新加载可选站点列表，最后切回 UI 线程赋值
+                    var list = _webData.GetUnSetCategoryWebSites();
+                    list = list.Concat(CategoryWebSiteList).OrderBy(m => m.Title).ToList();
+
+                    var optionList = new List<OptionModel>();
+                    foreach (var site in list)
+                    {
+                        optionList.Add(new OptionModel()
+                        {
+                            IsChecked = site.CategoryID == Category.ID,
+                            OptionValue = new Controls.Select.SelectItemModel
+                            {
+                                Name = $"{site.Title} - {site.Domain}",
+                                Img = site.IconFile
+                            },
+                            WebSite = site
+                        });
+                    }
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        WebSiteOptionList = optionList;
+                        _webSiteOptionsTemp = new List<OptionModel>(WebSiteOptionList);
+                    });
                 });
             }
         }

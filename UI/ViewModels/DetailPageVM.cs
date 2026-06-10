@@ -485,16 +485,24 @@ namespace UI.ViewModels
                 {
 
                     //  判断是否是忽略的进程
-                    IsIgnore = config.Behavior.IgnoreProcessList.Contains(App.Name);
+                    var isIgnore = config.Behavior.IgnoreProcessList.Contains(App.Name);
 
-                    LoadCategorys(App.Category?.Name);
+                    var categoryName = App.Category?.Name;
 
                     //  读取关联应用数据
                     var link = config.Links.Where(m => m.ProcessList.Contains(App.Name)).FirstOrDefault();
+                    var linkApps = default(List<Core.Models.AppModel>);
                     if (link != null)
                     {
-                        LinkApps = appData.GetAllApps().Where(m => link.ProcessList.Contains(m.Name) && m.Name != App.Name).ToList();
+                        linkApps = appData.GetAllApps().Where(m => link.ProcessList.Contains(m.Name) && m.Name != App.Name).ToList();
                     }
+
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        IsIgnore = isIgnore;
+                        LoadCategorys(categoryName);
+                        LinkApps = linkApps;
+                    });
                 }
             }
             );
@@ -509,38 +517,43 @@ namespace UI.ViewModels
 
                     var monthData = data.GetProcessMonthLogList(App.ID, Date);
                     int monthTotal = monthData.Sum(m => m.Time);
-                    Total = Time.ToString(monthTotal);
+                    var total = Time.ToString(monthTotal);
 
                     DateTime start = new DateTime(Date.Year, Date.Month, 1);
                     DateTime end = new DateTime(Date.Year, Date.Month, DateTime.DaysInMonth(Date.Year, Date.Month));
                     var monthAllData = data.GetDateRangelogList(start, end);
 
-                    LongDay = "暂无数据";
+                    var longDay = "暂无数据";
                     if (monthData.Count > 0)
                     {
                         var longDayData = monthData.OrderByDescending(m => m.Time).FirstOrDefault();
-                        LongDay = longDayData.Date.ToString("最长一天是在 dd 号，使用了 " + Time.ToString(longDayData.Time));
+                        longDay = longDayData.Date.ToString("最长一天是在 dd 号，使用了 " + Time.ToString(longDayData.Time));
 
                     }
 
 
                     int monthAllTotal = monthAllData.Sum(m => m.Time);
+                    var ratio = "暂无数据";
                     if (monthAllTotal > 0)
                     {
-                        Ratio = (((double)monthTotal / (double)monthAllTotal)).ToString("P");
+                        ratio = (((double)monthTotal / (double)monthAllTotal)).ToString("P");
                     }
-                    else
+                    var chartData = MapToChartsData(monthData);
+                    if (chartData.Count == 0)
                     {
-                        Ratio = "暂无数据";
-                    }
-                    Data = MapToChartsData(monthData);
-                    if (Data.Count == 0)
-                    {
-                        Data.Add(new ChartsDataModel()
+                        chartData.Add(new ChartsDataModel()
                         {
                             DateTime = Date,
                         });
                     }
+
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        Total = total;
+                        LongDay = longDay;
+                        Ratio = ratio;
+                        Data = chartData;
+                    });
                 }
             });
         }

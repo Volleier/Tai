@@ -283,7 +283,8 @@ namespace UI.ViewModels
                 var startDate = DateTime.Now;
                 var endDate = DateTime.Now;
                 string[] colNames = { };
-                NameIndexStart = 0;
+                var nameIndexStart = 0;
+                string weekDateStr = null;
                 if (TabbarSelectedIndex == 0)
                 {
                     //  按天
@@ -293,7 +294,7 @@ namespace UI.ViewModels
                 {
                     //  按周
                     var weekDateArr = SelectedWeek.Name == "本周" ? Time.GetThisWeekDate() : Time.GetLastWeekDate();
-                    WeekDateStr = weekDateArr[0].ToString("yyyy年MM月dd日") + " 到 " + weekDateArr[1].ToString("yyyy年MM月dd日");
+                    weekDateStr = weekDateArr[0].ToString("yyyy年MM月dd日") + " 到 " + weekDateArr[1].ToString("yyyy年MM月dd日");
                     startDate = weekDateArr[0];
                     endDate = weekDateArr[1];
                     colNames = new string[] { "周一", "周二", "周三", "周四", "周五", "周六", "周日", };
@@ -304,7 +305,7 @@ namespace UI.ViewModels
                     var dateArr = Time.GetMonthDate(MonthDate);
                     startDate = dateArr[0];
                     endDate = dateArr[1];
-                    NameIndexStart = 1;
+                    nameIndexStart = 1;
                 }
                 else if (TabbarSelectedIndex == 3)
                 {
@@ -330,10 +331,18 @@ namespace UI.ViewModels
                         Color=StateData.ThemeColor
                     }
                 };
-                ChartData = chartData;
 
                 //  详细访问数据
-                WebPageData = _webData.GetBrowseLogList(startDate, endDate, WebSite.ID).OrderByDescending(m => m.ID).ToList();
+                var webPageData = _webData.GetBrowseLogList(startDate, endDate, WebSite.ID).OrderByDescending(m => m.ID).ToList();
+
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    NameIndexStart = nameIndexStart;
+                    if (weekDateStr != null) WeekDateStr = weekDateStr;
+                    ChartData = chartData;
+                    WebPageData = webPageData;
+                });
             });
         }
         /// <summary>

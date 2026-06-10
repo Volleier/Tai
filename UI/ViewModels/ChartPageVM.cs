@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Documents;
+using System.Windows;
 using UI.Controls;
 using UI.Controls.Charts.Model;
 using UI.Controls.Select;
@@ -269,15 +270,12 @@ namespace UI.ViewModels
                         chartData.Add(dataItem);
                     }
                 }
-                if (ChartDataMode.Id == 1 || ChartDataMode.Id == 3)
-                {
-                    Data = chartData;
-                }
-                else
+
+                var finalData = chartData as List<ChartsDataModel>;
+                if (ChartDataMode.Id != 1 && ChartDataMode.Id != 3)
                 {
                     //  汇总
                     var values = data.GetRangeTotalData(Date, Date);
-
 
                     var dataItem = new ChartsDataModel()
                     {
@@ -285,18 +283,23 @@ namespace UI.ViewModels
                     };
 
                     sumData.Add(dataItem);
-                    Data = sumData;
+                    finalData = sumData;
                 }
 
-                RadarData = chartData;
+                double totalUse = finalData.Sum(m => m.Values.Sum());
 
-                double totalUse = Data.Sum(m => m.Values.Sum());
-                totalTime_ = totalUse;
-                TotalHours = Time.ToHoursString(totalUse);
-                LoadTopData();
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Data = finalData;
+                    RadarData = chartData;
+                    totalTime_ = totalUse;
+                    TotalHours = Time.ToHoursString(totalUse);
+                    LoadTopData();
 
-                //  网页数据
-                LoadWebData(Date, Date);
+                    //  网页数据
+                    LoadWebData(Date, Date);
+                });
             });
         }
 
@@ -312,7 +315,6 @@ namespace UI.ViewModels
             Task.Run(() =>
             {
                 var weekDateArr = SelectedWeek.Name == "本周" ? Time.GetThisWeekDate() : Time.GetLastWeekDate();
-                WeekDateStr = weekDateArr[0].ToString("yyyy年MM月dd日") + " 到 " + weekDateArr[1].ToString("yyyy年MM月dd日");
                 string[] weekNames = { "周一", "周二", "周三", "周四", "周五", "周六", "周日", };
                 var chartData = new List<ChartsDataModel>();
                 var sumData = new List<ChartsDataModel>();
@@ -352,15 +354,11 @@ namespace UI.ViewModels
                     }
                 }
 
-                if (ChartDataMode.Id == 1 || ChartDataMode.Id == 3)
-                {
-                    Data = chartData;
-                }
-                else
+                var finalData = chartData as List<ChartsDataModel>;
+                if (ChartDataMode.Id != 1 && ChartDataMode.Id != 3)
                 {
                     //  汇总
                     var values = data.GetRangeTotalData(weekDateArr[0], weekDateArr[1]);
-
 
                     var dataItem = new ChartsDataModel()
                     {
@@ -369,16 +367,23 @@ namespace UI.ViewModels
                     };
 
                     sumData.Add(dataItem);
-                    Data = sumData;
+                    finalData = sumData;
                 }
 
-                RadarData = chartData;
-                double totalUse = Data.Sum(m => m.Values.Sum());
-                totalTime_ = totalUse;
-                TotalHours = Time.ToHoursString(totalUse);
+                double totalUse = finalData.Sum(m => m.Values.Sum());
 
-                //  网页数据
-                LoadWebData(weekDateArr[0], weekDateArr[1]);
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WeekDateStr = weekDateArr[0].ToString("yyyy年MM月dd日") + " 到 " + weekDateArr[1].ToString("yyyy年MM月dd日");
+                    Data = finalData;
+                    RadarData = chartData;
+                    totalTime_ = totalUse;
+                    TotalHours = Time.ToHoursString(totalUse);
+
+                    //  网页数据
+                    LoadWebData(weekDateArr[0], weekDateArr[1]);
+                });
             });
 
 
@@ -433,11 +438,8 @@ namespace UI.ViewModels
                         chartData.Add(dataItem);
                     }
                 }
-                if (ChartDataMode.Id == 1 || ChartDataMode.Id == 3)
-                {
-                    Data = chartData;
-                }
-                else
+                var finalData = chartData as List<ChartsDataModel>;
+                if (ChartDataMode.Id != 1 && ChartDataMode.Id != 3)
                 {
                     //  汇总
                     var values = data.GetRangeTotalData(dateArr[0], dateArr[1]);
@@ -447,17 +449,23 @@ namespace UI.ViewModels
                         Values = values,
                     };
                     sumData.Add(dataItem);
-                    Data = sumData;
+                    finalData = sumData;
                 }
 
-                RadarData = chartData;
-                double totalUse = Data.Sum(m => m.Values.Sum());
-                totalTime_ = totalUse;
-                TotalHours = Time.ToHoursString(totalUse);
-                LoadTopData();
+                double totalUse = finalData.Sum(m => m.Values.Sum());
 
-                //  网页数据
-                LoadWebData(dateArr[0], dateArr[1]);
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Data = finalData;
+                    RadarData = chartData;
+                    totalTime_ = totalUse;
+                    TotalHours = Time.ToHoursString(totalUse);
+                    LoadTopData();
+
+                    //  网页数据
+                    LoadWebData(dateArr[0], dateArr[1]);
+                });
             });
 
         }
@@ -518,11 +526,8 @@ namespace UI.ViewModels
 
 
 
-                if (ChartDataMode.Id == 1 || ChartDataMode.Id == 3)
-                {
-                    Data = chartData;
-                }
-                else
+                var finalData = chartData as List<ChartsDataModel>;
+                if (ChartDataMode.Id != 1 && ChartDataMode.Id != 3)
                 {
                     //  汇总
                     var values = data.GetMonthTotalData(YearDate);
@@ -532,20 +537,24 @@ namespace UI.ViewModels
                         ColumnNames = names,
                     };
                     sumData.Add(dataItem);
-
-                    Data = sumData;
+                    finalData = sumData;
                 }
 
-                RadarData = chartData;
+                double totalUse = finalData.Sum(m => m.Values.Sum());
 
-                double totalUse = Data.Sum(m => m.Values.Sum());
-                totalTime_ = totalUse;
-                TotalHours = Time.ToHoursString(totalUse);
-                LoadTopData();
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Data = finalData;
+                    RadarData = chartData;
+                    totalTime_ = totalUse;
+                    TotalHours = Time.ToHoursString(totalUse);
+                    LoadTopData();
 
-                //  网页数据
-                var dateArr = Time.GetYearDate(YearDate);
-                LoadWebData(dateArr[0], dateArr[1]);
+                    //  网页数据
+                    var dateArr = Time.GetYearDate(YearDate);
+                    LoadWebData(dateArr[0], dateArr[1]);
+                });
             });
         }
 
@@ -580,22 +589,26 @@ namespace UI.ViewModels
                 }
                 var list = data.GetDateRangelogList(dateStart, dateEnd, 5);
 
-                TopData = MapToChartsData(list);
-
-                TopHours = TopData.Count > 0 ? Time.ToHoursString(TopData[0].Value) : "0";
-
-                appCount_ = data.GetDateRangeAppCount(dateStart, dateEnd);
-                AppCount = appCount_.ToString();
-
-                Top1App = null;
-
-                if (TopData.Count > 0)
+                var topData = MapToChartsData(list);
+                var topHours = topData.Count > 0 ? Time.ToHoursString(topData[0].Value) : "0";
+                var appCount = data.GetDateRangeAppCount(dateStart, dateEnd);
+                var top1App = default(Core.Models.AppModel);
+                if (topData.Count > 0)
                 {
-                    var model = TopData[0].Data as DailyLogModel;
-                    Top1App = model != null ? model.AppModel : null;
+                    var model = topData[0].Data as DailyLogModel;
+                    top1App = model != null ? model.AppModel : null;
                 }
 
-                LoadDiffData();
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    TopData = topData;
+                    TopHours = topHours;
+                    appCount_ = appCount;
+                    AppCount = appCount.ToString();
+                    Top1App = top1App;
+                    LoadDiffData();
+                });
             });
         }
 
@@ -706,12 +719,13 @@ namespace UI.ViewModels
                 IEnumerable<DailyLogModel> daysModelList = new List<DailyLogModel>();
 
                 var chartsDatas = new List<ChartsDataModel>();
+                string dayHoursSelectedTime = string.Empty;
 
                 if (TabbarSelectedIndex == 0)
                 {
                     //  天
                     var time = new DateTime(Date.Year, Date.Month, Date.Day, ColumnSelectedIndex, 0, 0);
-                    DayHoursSelectedTime = time.ToString("yyyy年MM月dd日 HH点");
+                    dayHoursSelectedTime = time.ToString("yyyy年MM月dd日 HH点");
                     hoursModelList = data.GetTimeRangelogList(time);
                 }
                 else if (TabbarSelectedIndex == 1)
@@ -719,7 +733,7 @@ namespace UI.ViewModels
                     //  周
                     var weekDateArr = SelectedWeek.Name == "本周" ? Time.GetThisWeekDate() : Time.GetLastWeekDate();
                     var time = weekDateArr[0].AddDays(ColumnSelectedIndex);
-                    DayHoursSelectedTime = time.ToString("yyyy年MM月dd日");
+                    dayHoursSelectedTime = time.ToString("yyyy年MM月dd日");
                     daysModelList = data.GetDateRangelogList(time, time);
                 }
                 else if (TabbarSelectedIndex == 2)
@@ -727,7 +741,7 @@ namespace UI.ViewModels
                     //  月
                     var dateArr = Time.GetMonthDate(MonthDate);
                     var time = dateArr[0].AddDays(ColumnSelectedIndex);
-                    DayHoursSelectedTime = time.ToString("yyyy年MM月dd日");
+                    dayHoursSelectedTime = time.ToString("yyyy年MM月dd日");
                     daysModelList = data.GetDateRangelogList(time, time);
                 }
                 else if (TabbarSelectedIndex == 3)
@@ -736,7 +750,7 @@ namespace UI.ViewModels
                     var dateStart = new DateTime(YearDate.Year, ColumnSelectedIndex + 1, 1);
                     var dateEnd = new DateTime(dateStart.Year, dateStart.Month, DateTime.DaysInMonth(dateStart.Year, dateStart.Month), 23, 59, 59);
 
-                    DayHoursSelectedTime = dateStart.ToString("yyyy年MM月");
+                    dayHoursSelectedTime = dateStart.ToString("yyyy年MM月");
                     daysModelList = data.GetDateRangelogList(dateStart, dateEnd);
                 }
 
@@ -769,7 +783,12 @@ namespace UI.ViewModels
                     }
                 }
 
-                DayHoursData = chartsDatas;
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    DayHoursSelectedTime = dayHoursSelectedTime;
+                    DayHoursData = chartsDatas;
+                });
             });
         }
 
@@ -809,8 +828,11 @@ namespace UI.ViewModels
                     bindModel.Icon = item.ID == 0 ? "" : category.IconFile;
                     chartsDatas.Add(bindModel);
                 }
-                WebCategoriesPieData = chartsDatas.OrderByDescending(m => m.Value).ToList();
-
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WebCategoriesPieData = chartsDatas.OrderByDescending(m => m.Value).ToList();
+                });
             });
         }
 
@@ -869,12 +891,11 @@ namespace UI.ViewModels
                     }
                 }
 
-                //var chartsDatas = new List<ChartsDataModel>();
-                //var bindModel = new ChartsDataModel();
-                //bindModel.Values = data.Select(m => m.Value).ToArray();
-                //bindModel.Color = StateData.ThemeColor;
-                //chartsDatas.Add(bindModel);
-                WebBrowseStatisticsData = chartData;
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WebBrowseStatisticsData = chartData;
+                });
             });
         }
 
@@ -883,7 +904,11 @@ namespace UI.ViewModels
             Task.Run(() =>
             {
                 var data = _webData.GetDateRangeWebSiteList(start_, end_, 10);
-                WebSitesTopData = MapToChartData(data);
+                var mapped = MapToChartData(data);
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WebSitesTopData = mapped;
+                });
             });
         }
         private void LoadWebSitesColSelectedData()
@@ -900,11 +925,12 @@ namespace UI.ViewModels
                 var chartData = new List<ChartsDataModel>();
                 bool isTime = false;
                 DateTime startTime = DateTime.Now, endTime = DateTime.Now;
+                string colSelectedTimeText = string.Empty;
                 if (TabbarSelectedIndex == 0)
                 {
                     //  天
                     var time = new DateTime(Date.Year, Date.Month, Date.Day, WebColSelectedIndex, 0, 0);
-                    WebSitesColSelectedTimeText = time.ToString("yyyy年MM月dd日 HH点");
+                    colSelectedTimeText = time.ToString("yyyy年MM月dd日 HH点");
                     isTime = true;
                     startTime = endTime = time;
                 }
@@ -913,7 +939,7 @@ namespace UI.ViewModels
                     //  周
                     var weekDateArr = SelectedWeek.Name == "本周" ? Time.GetThisWeekDate() : Time.GetLastWeekDate();
                     var time = weekDateArr[0].AddDays(WebColSelectedIndex);
-                    WebSitesColSelectedTimeText = time.ToString("yyyy年MM月dd日");
+                    colSelectedTimeText = time.ToString("yyyy年MM月dd日");
                     startTime = endTime = time;
                 }
                 else if (TabbarSelectedIndex == 2)
@@ -921,7 +947,7 @@ namespace UI.ViewModels
                     //  月
                     var dateArr = Time.GetMonthDate(MonthDate);
                     var time = dateArr[0].AddDays(WebColSelectedIndex);
-                    WebSitesColSelectedTimeText = time.ToString("yyyy年MM月dd日");
+                    colSelectedTimeText = time.ToString("yyyy年MM月dd日");
                     startTime = endTime = time;
                 }
                 else if (TabbarSelectedIndex == 3)
@@ -930,7 +956,7 @@ namespace UI.ViewModels
                     var dateStart = new DateTime(YearDate.Year, WebColSelectedIndex + 1, 1);
                     var dateEnd = new DateTime(dateStart.Year, dateStart.Month, DateTime.DaysInMonth(dateStart.Year, dateStart.Month), 23, 59, 59);
 
-                    WebSitesColSelectedTimeText = dateStart.ToString("yyyy年MM月");
+                    colSelectedTimeText = dateStart.ToString("yyyy年MM月");
 
                     startTime = dateStart;
                     endTime = dateEnd;
@@ -940,7 +966,12 @@ namespace UI.ViewModels
 
                 chartData = MapToChartData(_webData.GetDateRangeWebSiteList(startTime, endTime, 0, -1, isTime));
 
-                WebSitesColSelectedData = chartData;
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WebSitesColSelectedTimeText = colSelectedTimeText;
+                    WebSitesColSelectedData = chartData;
+                });
             });
         }
         private List<ChartsDataModel> MapToChartData(IEnumerable<Core.Models.Db.WebSiteModel> list)

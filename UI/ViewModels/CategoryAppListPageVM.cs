@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using UI.Controls;
 using UI.Models;
 using UI.Models.Category;
@@ -155,22 +156,14 @@ namespace UI.ViewModels
         {
             Task.Run(() =>
             {
-                Category = mainVM.Data as UI.Models.Category.CategoryModel;
-                Data = appData.GetAppsByCategoryID(Category.Data.ID);
+                var category = mainVM.Data as UI.Models.Category.CategoryModel;
+                var data = appData.GetAppsByCategoryID(category.Data.ID);
 
-                //var appList = new List<ChooseAppModel>();
-                //foreach (var item in appData.GetAllApps())
-                //{
-                //    var app = new ChooseAppModel();
-                //    app.App = item;
-                //    app.IsChoosed = item.CategoryID == Category.Data.ID;
-                //    app.Value.Name = item.Name;
-                //    app.Value.Img = item.IconFile;
-
-                //    appList.Add(app);
-                //}
-
-                //AppList = appList;
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Category = category;
+                    Data = data;
+                });
             });
         }
 
@@ -197,9 +190,12 @@ namespace UI.ViewModels
                         appList.Add(app);
                     }
                 }
-                appList = appList.OrderBy(m => m.App.Description).ToList();
+                var sorted = appList.OrderBy(m => m.App.Description).ToList();
 
-                AppList = appList;
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    AppList = sorted;
+                });
             });
         }
 
