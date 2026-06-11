@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -15,8 +15,24 @@ using UI.Models;
 
 namespace UI.Controls
 {
+    /// <summary>
+    /// 页面导航容器。
+    ///
+    /// 缓存策略：
+    /// - IndexPage（主导航页，在 IndexUriList 中定义）→ 持久缓存，不自动销毁。
+    /// - DetailPage（详情/子页）→ 返回时从缓存中释放（调用 ViewModel.Dispose 并移除引用）。
+    ///
+    /// 职责分离：
+    /// - 导航历史管理（前进/后退）
+    /// - 页面缓存与释放（Back 时销毁 DetailPage，ClearCache 时销毁所有页面）
+    /// - 滚动位置恢复
+    /// - 加载动画触发
+    /// </summary>
     public class PageContainer : Control
     {
+        /// <summary>DetailPage 缓存上限（防止内存泄漏）</summary>
+        private const int MAX_DETAIL_CACHE = 20;
+
         #region 依赖属性
         public List<string> IndexUriList
         {
@@ -194,18 +210,18 @@ namespace UI.Controls
 
                 int preIndex = Index + 1;
 
-                //  从缓存中移除上一页
-
+                //  从缓存中释放上一页（DetailPage 销毁，IndexPage 保留）
                 var pageUri = Historys[preIndex];
                 if (PageCache.ContainsKey(pageUri))
                 {
                     var page = PageCache[pageUri];
-                    var vm = page.Instance.DataContext as ModelBase;
-                    vm?.Dispose();
-                    page.Instance.Content = null;
-                    page.Instance.DataContext = null;
-
-                    PageCache.Remove(pageUri);
+                    if (!page.IsIndexPage)
+                    {
+                        //  DetailPage：彻底释放
+                        page.Dispose();
+                        PageCache.Remove(pageUri);
+                    }
+                    //  IndexPage：保留在缓存中，仅移除历史记录
                 }
                 Historys.RemoveRange(preIndex, 1);
 
@@ -220,11 +236,20 @@ namespace UI.Controls
         {
             Historys.Clear();
         }
+
+        /// <summary>
+        /// 判断给定 URI 是否为主导航页。
+        /// </summary>
+        private bool IsIndexUri(string uri)
+        {
+            return IndexUriList != null && IndexUriList.Contains(uri);
+        }
+
         private void LoadPage()
         {
             if (Uri != string.Empty)
             {
-                if (IndexUriList != null && IndexUriList.Contains(Uri))
+                if (IsIndexUri(Uri))
                 {
                     Historys.Clear();
                     Index = 0;
@@ -232,7 +257,8 @@ namespace UI.Controls
                     Historys.Add(Uri);
                     if (!IsBack)
                     {
-                        ClearCache();
+                        //  导航到主页 → 清理所有 DetailPage 缓存，保留 IndexPage
+                        EvictDetailPages();
                     }
                 }
                 else
@@ -257,6 +283,11 @@ namespace UI.Controls
                     if (!PageCache.ContainsKey(Uri))
                     {
                         PageCache.Add(Uri, page);
+                        //  限制 DetailPage 缓存上限，防止内存泄漏
+                        if (!page.IsIndexPage)
+                        {
+                            TrimDetailCache();
+                        }
                     }
 
                     //  滚动条位置处理
@@ -294,30 +325,73 @@ namespace UI.Controls
             var newPage = new PageModel()
             {
                 Instance = page,
-                ScrollValue = 0
+                ScrollValue = 0,
+                IsIndexPage = IsIndexUri(Uri)
             };
 
             return newPage;
         }
 
+        /// <summary>
+        /// 释放所有非主导航页（DetailPage）的缓存。
+        /// 导航到主页时调用，确保返回主页后子页面被正确释放。
+        /// </summary>
+        private void EvictDetailPages()
+        {
+            var detailKeys = PageCache.Where(kvp => !kvp.Value.IsIndexPage)
+                                      .Select(kvp => kvp.Key)
+                                      .ToList();
+            foreach (var key in detailKeys)
+            {
+                PageCache[key].Dispose();
+                PageCache.Remove(key);
+            }
+        }
+
+        /// <summary>
+        /// 限制 DetailPage 缓存数量：超出上限时释放最早的非首页缓存。
+        /// </summary>
+        private void TrimDetailCache()
+        {
+            var detailKeys = PageCache.Where(kvp => !kvp.Value.IsIndexPage)
+                                      .Select(kvp => kvp.Key)
+                                      .ToList();
+            if (detailKeys.Count > MAX_DETAIL_CACHE)
+            {
+                var oldestKey = detailKeys.First();
+                PageCache[oldestKey].Dispose();
+                PageCache.Remove(oldestKey);
+            }
+        }
+
+        /// <summary>
+        /// 清除所有页面缓存（包括主导航页），释放所有 ViewModel。
+        /// </summary>
         private void ClearCache()
         {
             if (PageCache != null)
             {
-                foreach (var key in PageCache.Keys)
+                foreach (var kvp in PageCache)
                 {
-                    var page = PageCache[key];
-                    var vm = page.Instance.DataContext as ModelBase;
-                    vm?.Dispose();
-                    page.Instance.Content = null;
-                    page.Instance.DataContext = null;
+                    kvp.Value.Dispose();
                 }
                 PageCache.Clear();
             }
         }
 
-        public void Disponse()
+        /// <summary>
+        /// 释放 PageContainer 自身资源。
+        /// </summary>
+        public void Dispose()
         {
+            //  取消事件订阅防止内存泄漏
+            if (Frame?.NavigationService != null)
+            {
+                Frame.NavigationService.Navigated -= NavigationService_Navigated;
+                Frame.NavigationService.LoadCompleted -= NavigationService_LoadCompleted;
+            }
+            Loaded -= PageContainer_Loaded;
+
             ClearCache();
             Content = null;
             DataContext = null;
@@ -348,23 +422,6 @@ namespace UI.Controls
             Storyboard.SetTarget(scrollAnimation, this);
             Storyboard.SetTargetProperty(scrollAnimation, new PropertyPath("RenderTransform.Children[1].Y"));
             animation.Children.Add(scrollAnimation);
-            //DoubleAnimation scaleXAnimation = new DoubleAnimation();
-            //scaleXAnimation.From = .8;
-            //scaleXAnimation.To = 1;
-            //scaleXAnimation.Duration = new Duration(TimeSpan.FromSeconds(0.14));
-
-            //DoubleAnimation scaleYAnimation = new DoubleAnimation();
-            //scaleYAnimation.From = .8;
-            //scaleYAnimation.To = 1;
-            //scaleYAnimation.Duration = new Duration(TimeSpan.FromSeconds(0.14));
-
-            //Storyboard.SetTarget(scaleXAnimation, this);
-            //Storyboard.SetTargetProperty(scaleXAnimation, new PropertyPath("RenderTransform.Children[0].ScaleX"));
-            //Storyboard.SetTarget(scaleYAnimation, this);
-            //Storyboard.SetTargetProperty(scaleYAnimation, new PropertyPath("RenderTransform.Children[0].ScaleY"));
-
-            //animation.Children.Add(scaleXAnimation);
-            //animation.Children.Add(scaleYAnimation);
         }
     }
 }

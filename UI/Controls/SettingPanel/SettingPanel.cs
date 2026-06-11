@@ -18,6 +18,7 @@ using UI.Controls.Button;
 using UI.Controls.Input;
 using UI.Controls.List;
 using UI.Controls.Select;
+using UI.Servicers;
 
 namespace UI.Controls.SettingPanel
 {
@@ -555,26 +556,35 @@ namespace UI.Controls.SettingPanel
                             List<string> data = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(ofd.FileName));
                             if (data == null)
                             {
-                                MessageBox.Show("文件格式有误或者数据为空，请选择有效的导出文件。");
+                                var ui = App.Services?.GetService(typeof(IUIServicer)) as IUIServicer;
+                                _ = ui?.ShowConfirmDialogAsync("错误", "文件格式有误或者数据为空，请选择有效的导出文件。");
                             }
                             else
                             {
-                                if (MessageBox.Show("导入将覆盖现有配置，确定吗？", "注意", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
+                                var ui = App.Services?.GetService(typeof(IUIServicer)) as IUIServicer;
+                                if (ui != null)
                                 {
-                                    pi.SetValue(configData, data);
-                                    listControl.Items.Clear();
-                                    foreach (string item in data)
+                                    _ = ui.ShowConfirmDialogAsync("注意", "导入将覆盖现有配置，确定吗？").ContinueWith(async task =>
                                     {
-                                        listControl.Items.Add(item);
-                                    }
-                                    MessageBox.Show("导入完成！", "提示");
+                                        if (task.Result)
+                                        {
+                                            await Application.Current.Dispatcher.InvokeAsync(() =>
+                                            {
+                                                pi.SetValue(configData, data);
+                                                listControl.Items.Clear();
+                                                foreach (string item in data)
+                                                    listControl.Items.Add(item);
+                                            });
+                                        }
+                                    }, TaskScheduler.Default);
                                 }
                             }
                         }
                         catch (Exception ex)
                         {
                             Logger.Error($"导入配置“{configAttribute.Name}”时失败：{ex.Message}");
-                            MessageBox.Show("导入失败！", "提示");
+                            var ui = App.Services?.GetService(typeof(IUIServicer)) as IUIServicer;
+                            _ = ui?.ShowConfirmDialogAsync("导入失败", ex.Message);
                         }
                     }
 
@@ -596,13 +606,15 @@ namespace UI.Controls.SettingPanel
                         if (result == true)
                         {
                             File.WriteAllText(sfd.FileName, JsonConvert.SerializeObject(listControl.Items));
-                            MessageBox.Show("导出完成", "提示");
+                            var ui = App.Services?.GetService(typeof(IUIServicer)) as IUIServicer;
+                            _ = ui?.ShowConfirmDialogAsync("提示", "导出完成");
                         }
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"导出配置“{configAttribute.Name}”时失败：{ex.Message}");
-                        MessageBox.Show("导出失败！", "提示");
+                        var ui = App.Services?.GetService(typeof(IUIServicer)) as IUIServicer;
+                        _ = ui?.ShowConfirmDialogAsync("导出失败", ex.Message);
                     }
 
                 };

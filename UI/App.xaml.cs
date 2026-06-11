@@ -29,6 +29,8 @@ namespace UI
     public partial class App : Application
     {
         private readonly ServiceProvider serviceProvider;
+        /// <summary>全局服务提供器静态访问，供非 DI 创建的控件（如 SettingPanel）使用。</summary>
+        public static ServiceProvider Services { get; private set; }
         private System.Threading.Mutex mutex;
         //  保活窗口
         private HideWindow keepaliveWindow;
@@ -45,6 +47,7 @@ namespace UI
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             serviceProvider = serviceCollection.BuildServiceProvider();
+            Services = serviceProvider;
         }
 
         protected override void OnExit(ExitEventArgs e)

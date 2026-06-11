@@ -37,20 +37,8 @@ namespace Core.Servicers.Instances
         private readonly IAppTimerServicer _appTimer;
         private readonly IWebServer _webServer;
         private readonly IWebData _webData;
-        //  忽略的进程
-        private readonly string[] DefaultIgnoreProcess = new string[] {
-            "Tai",
-            "SearchHost",
-            "Taskmgr",
-            "ApplicationFrameHost",
-            "StartMenuExperienceHost",
-            "ShellExperienceHost",
-            "OpenWith",
-            "Updater",
-            "LockApp",
-            "dwm",
-            "SystemSettingsAdminFlows"
-        };
+        /// <summary>应用过滤服务（从 Main 中提取，单一职责）</summary>
+        private readonly AppFilterService _appFilter;
 
         /// <summary>
         /// 睡眠状态
@@ -65,24 +53,10 @@ namespace Core.Servicers.Instances
         public event EventHandler OnUpdateTime;
         public event EventHandler OnStarted;
 
-        /// <summary>
-        /// 忽略进程缓存列表
-        /// </summary>
-        private List<string> IgnoreProcessCacheList;
-
-        /// <summary>
-        /// 配置正则忽略进程列表
-        /// </summary>
-        private List<string> ConfigIgnoreProcessRegxList;
-        /// <summary>
-        /// 配置忽略进程名称列表
-        /// </summary>
-        private List<string> ConfigIgnoreProcessList;
         //  更新应用日期
         private DateTime updadteAppDateTime_ = DateTime.Now.Date;
         //  已经更新过的应用列表
         private List<string> updatedAppList = new List<string>();
-        private List<string> _configProcessNameWhiteList, _configProcessRegexWhiteList;
         public Main(
             IAppObserver appObserver,
             IData data,
@@ -105,12 +79,7 @@ namespace Core.Servicers.Instances
             _appTimer = appTimer_;
             _webServer = webServer_;
             _webData = webData_;
-
-            IgnoreProcessCacheList = new List<string>();
-            ConfigIgnoreProcessRegxList = new List<string>();
-            ConfigIgnoreProcessList = new List<string>();
-            _configProcessNameWhiteList = new List<string>();
-            _configProcessRegexWhiteList = new List<string>();
+            _appFilter = new AppFilterService(appData);
 
             sleepdiscover.SleepStatusChanged += Sleepdiscover_SleepStatusChanged;
             appConfig.ConfigChanged += AppConfig_ConfigChanged;
@@ -210,34 +179,12 @@ namespace Core.Servicers.Instances
 
         private void UpdateConfigIgnoreProcess()
         {
-            if (config == null)
-            {
-                return;
-            }
-            ConfigIgnoreProcessList.Clear();
-            ConfigIgnoreProcessRegxList.Clear();
-            IgnoreProcessCacheList.Clear();
-
-            ConfigIgnoreProcessList = config.Behavior.IgnoreProcessList.Where(m => !IsRegex(m)).ToList();
-            ConfigIgnoreProcessRegxList = config.Behavior.IgnoreProcessList.Where(m => IsRegex(m)).ToList();
+            _appFilter.UpdateFromConfig(config);
         }
 
         private void UpdateConfigProcessWhiteList()
         {
-            if (config == null)
-            {
-                return;
-            }
-            _configProcessNameWhiteList.Clear();
-            _configProcessRegexWhiteList.Clear();
-
-            _configProcessNameWhiteList = config.Behavior.ProcessWhiteList.Where(m => !IsRegex(m)).ToList();
-            _configProcessRegexWhiteList = config.Behavior.ProcessWhiteList.Where(m => IsRegex(m)).ToList();
-        }
-
-        private bool IsRegex(string str)
-        {
-            return Regex.IsMatch(str, @"[\.|\*|\?|\{|\\|\[|\^|\|]");
+            _appFilter.UpdateFromConfig(config);
         }
 
         private void Sleepdiscover_SleepStatusChanged(Enums.SleepStatus sleepStatus)
@@ -271,68 +218,22 @@ namespace Core.Servicers.Instances
 
 
         /// <summary>
-        /// 检查应用是否需要记录数据
+        /// 检查应用是否需要记录数据，并在需要时创建/更新应用信息。
+        /// 过滤逻辑已委托给 AppFilterService。
         /// </summary>
-        /// <param name="processName"></param>
-        /// <param name="description"></param>
-        /// <param name="file"></param>
         private bool IsCheckApp(string processName, string description, string file)
         {
-            if (string.IsNullOrEmpty(file) || string.IsNullOrEmpty(processName) || DefaultIgnoreProcess.Contains(processName) || IgnoreProcessCacheList.Contains(processName))
+            var filterResult = _appFilter.CheckApp(processName, description, file, config);
+            if (filterResult == AppFilterResult.Ignored)
             {
                 return false;
             }
 
-            //  从名称判断
-            if (ConfigIgnoreProcessList.Contains(processName))
-            {
-                return false;
-            }
-
-            //  正则表达式
-            foreach (string reg in ConfigIgnoreProcessRegxList)
-            {
-                if (RegexHelper.IsMatch(processName, reg) || RegexHelper.IsMatch(file, reg))
-                {
-                    IgnoreProcessCacheList.Add(processName);
-                    return false;
-                }
-            }
-
-            //  应用白名单过滤
-            if (config.Behavior.IsWhiteList && config.Behavior.ProcessWhiteList.Count > 0)
-            {
-                bool isWhite = false;
-                //  通过进程名称判断
-                if (_configProcessNameWhiteList.Contains(processName))
-                {
-                    isWhite = true;
-                }
-                else
-                {
-                    //  进程名称中匹配不到时尝试正则表达式
-                    foreach (string reg in _configProcessRegexWhiteList)
-                    {
-                        if (RegexHelper.IsMatch(processName, reg) || RegexHelper.IsMatch(file, reg))
-                        {
-                            isWhite = true;
-                            break;
-                        }
-                    }
-                }
-                //  白名单中找不到时不统计
-                Debug.WriteLine("白名单过滤结果：" + processName + " -> " + isWhite);
-                if (!isWhite) return false;
-            }
-
+            //  过滤通过后：创建或更新应用信息
             AppModel app = appData.GetApp(processName);
             if (app == null)
             {
-                //  记录应用信息
-
-                //  提取icon
                 string iconFile = Iconer.ExtractFromFile(file, processName, description);
-
                 appData.AddApp(new AppModel()
                 {
                     Name = processName,
@@ -352,17 +253,9 @@ namespace Core.Servicers.Instances
 
                 if (!updatedAppList.Contains(processName))
                 {
-                    //  更新应用信息
                     app.IconFile = Iconer.ExtractFromFile(file, processName, description);
-
-                    if (app.Description != description)
-                    {
-                        app.Description = description;
-                    }
-                    if (app.File != file)
-                    {
-                        app.File = file;
-                    }
+                    if (app.Description != description) app.Description = description;
+                    if (app.File != file) app.File = file;
                     appData.UpdateApp(app);
                     updatedAppList.Add(processName);
                 }
