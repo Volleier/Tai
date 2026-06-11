@@ -64,7 +64,7 @@ namespace Core.Servicers.Instances
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Write queue processing error: {ex}");
+                    Logger.Error($"[DB] Write queue processing error: {ex}");
                 }
             }
         }
@@ -205,7 +205,7 @@ namespace Core.Servicers.Instances
             }
             catch (Exception ex)
             {
-                Logger.Error($"在更新链接[{site_.Url}]时长[{duration_}]时异常，{ex}");
+                Logger.Error($"[DB] 更新链接[{site_.Url}]时长[{duration_}]时异常: {ex}");
             }
         }
         #endregion

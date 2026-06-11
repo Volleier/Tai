@@ -38,7 +38,7 @@
                                 <Run Text="{Binding ShowType.Name}"/><Run Text="分类"/>
                             </TextBlock>
                         </StackPanel>
-                        <Button:IconButton Foreground="#ccc" Icon="ChromeClose" HorizontalAlignment="Right" FontSize="12" Margin="0,0,10,0" Command="{Binding EditCloseCommand}"/>
+                        <Button:IconButton Foreground="{DynamicResource DisabledTextBrush}" Icon="ChromeClose" HorizontalAlignment="Right" FontSize="12" Margin="0,0,10,0" Command="{Binding EditCloseCommand}"/>
                     </Grid>
                     <!--<TextBlock Text="编辑" VerticalAlignment="Center" Margin="10,0,0,0"/>-->
                     <ScrollViewer Grid.Row="1">

@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--上下文菜单样式-->
     <Style  TargetType="{x:Type ContextMenu}">
-        <Setter Property="Background" Value="White"/>
+        <Setter Property="Background" Value="{DynamicResource PopupBackgroundBrush}"/>
         <!--<Setter Property="BorderBrush" Value="{DynamicResource FluentBorderBrush}"/>-->
 
         <Setter Property="Padding" Value="0"/>
@@ -104,8 +104,8 @@
                     <Border x:Name="SubmenuBorder"
                 SnapsToDevicePixels="True"
                 BorderThickness="1"
-                                Background="White"
-                                BorderBrush="#2b20d9"
+                                Background="{DynamicResource PopupBackgroundBrush}"
+                                BorderBrush="{DynamicResource ThemeBrush}"
                                 Margin="10"
                                 CornerRadius="0"
                                
@@ -152,7 +152,7 @@
             </Trigger>
             <Trigger Property="IsEnabled"
              Value="False">
-                <Setter Property="Foreground" Value="#ccc">
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}">
 
                 </Setter>
             </Trigger>
@@ -173,13 +173,13 @@
             <Trigger Property="IsHighlighted"
              Value="true">
                 <Setter Property="Background"
-              TargetName="Border" Value="red">
+              TargetName="Border" Value="{DynamicResource DangerBrush}">
 
                 </Setter>
             </Trigger>
             <Trigger Property="IsEnabled"
              Value="False">
-                <Setter Property="Foreground" Value="#ccc">
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}">
 
                 </Setter>
             </Trigger>
@@ -273,7 +273,7 @@ HorizontalAlignment="Left"                                      RecognizesAccess
             </Trigger>
             <Trigger Property="IsEnabled"
              Value="false">
-                <Setter Property="Foreground" Value="#ccc">
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}">
 
                 </Setter>
             </Trigger>
@@ -393,7 +393,7 @@ HorizontalAlignment="Left"                                      RecognizesAccess
             </Trigger>
             <Trigger Property="IsEnabled"
              Value="false">
-                <Setter Property="Foreground" Value="#ccc">
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}">
                 </Setter>
             </Trigger>
         </ControlTemplate.Triggers>

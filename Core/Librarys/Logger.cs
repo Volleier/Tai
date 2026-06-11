@@ -14,6 +14,17 @@ using System.Windows.Threading;
 
 namespace Core.Librarys
 {
+    /// <summary>
+    /// 统一日志系统。支持带标签的结构化日志，便于搜索和过滤。
+    ///
+    /// 标准标签（Tag）：
+    ///   [Startup]   — 启动流程
+    ///   [Config]    — 配置变更
+    ///   [Web]       — 浏览器扩展消息
+    ///   [DB]        — 数据库操作
+    ///   [Sleep]     — 睡眠检测
+    ///   [AppTimer]  — 应用计时统计
+    /// </summary>
     public static class Logger
     {
         private const int threshold = 50;
@@ -45,26 +56,44 @@ namespace Core.Librarys
             Error,
         }
 
+        /// <summary>
+        /// 记录信息日志（可附带标签）。
+        /// </summary>
         public static void Info(string message, [CallerLineNumber] int callerLineNumber = -1, [CallerFilePath] string callerFilePath = null, [CallerMemberName] string callerMemberName = null)
         {
             message = message + "\r\nLine:" + callerLineNumber + ",File:" + callerFilePath + ",name:" + callerMemberName;
             message = Fromat(LogLevel.Info, message);
-
             loggers.Add(message);
         }
 
+        /// <summary>
+        /// 记录警告日志（可附带标签）。
+        /// </summary>
         public static void Warn(string message, [CallerLineNumber] int callerLineNumber = -1, [CallerFilePath] string callerFilePath = null, [CallerMemberName] string callerMemberName = null)
         {
             message = message + "\r\nLine:" + callerLineNumber + ",File:" + callerFilePath + ",name:" + callerMemberName;
             message = Fromat(LogLevel.Warn, message);
-
             loggers.Add(message);
         }
+
+        /// <summary>
+        /// 记录错误日志（可附带标签）。
+        /// </summary>
         public static void Error(string message, [CallerLineNumber] int callerLineNumber = -1, [CallerFilePath] string callerFilePath = null, [CallerMemberName] string callerMemberName = null)
         {
             message = message + "\r\nLine:" + callerLineNumber + ",File:" + callerFilePath + ",name:" + callerMemberName;
             message = Fromat(LogLevel.Error, message);
+            loggers.Add(message);
+        }
 
+        /// <summary>
+        /// 带标签的结构化日志。标签格式： [TAG] message
+        /// 示例：Logger.Tag("[Startup]", "应用初始化完成");
+        /// </summary>
+        public static void Tag(string tag, string message, [CallerLineNumber] int callerLineNumber = -1, [CallerFilePath] string callerFilePath = null, [CallerMemberName] string callerMemberName = null)
+        {
+            message = tag + " " + message + "\r\nLine:" + callerLineNumber + ",File:" + callerFilePath + ",name:" + callerMemberName;
+            message = Fromat(LogLevel.Info, message);
             loggers.Add(message);
         }
 

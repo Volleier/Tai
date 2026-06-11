@@ -91,6 +91,7 @@ namespace Core.Servicers.Instances
         {
             if (oldConfig != newConfig)
             {
+                Logger.Tag("[Config]", "配置已变更");
                 //  处理开机自启
                 SystemCommon.SetStartup(newConfig.General.IsStartatboot);
 
@@ -125,6 +126,7 @@ namespace Core.Servicers.Instances
 
                  AppState.IsLoading = false;
              });
+            Logger.Tag("[Startup]", "Tai 初始化完成");
 
 
 
@@ -141,6 +143,7 @@ namespace Core.Servicers.Instances
             Start();
 
             OnStarted?.Invoke(this, EventArgs.Empty);
+            Logger.Tag("[Startup]", "所有服务已启动");
         }
         public void Start()
         {
@@ -191,7 +194,7 @@ namespace Core.Servicers.Instances
         {
             this.sleepStatus = sleepStatus;
 
-            Logger.Info($"[{sleepStatus}]");
+            Logger.Tag("[Sleep]", $"睡眠状态变更 → {sleepStatus}");
             if (sleepStatus == SleepStatus.Sleep)
             {
                 //  进入睡眠状态
@@ -384,6 +387,7 @@ namespace Core.Servicers.Instances
                     Debug.WriteLine($"URL已被过滤，{args.Url}");
                     return;
                 }
+                Logger.Tag("[Web]", $"收到网页统计: Url={UrlHelper.GetDomain(args.Url)}, Duration={args.Duration}s");
 
                 //  记录数据
                 var site = new Models.WebPage.Site()
