@@ -1,4 +1,4 @@
-﻿using Core.Event;
+using Core.Event;
 using Core.Librarys;
 using Core.Librarys.Browser;
 using Core.Models.WebPage;
@@ -20,6 +20,11 @@ namespace Core.Servicers.Instances
     {
         private WebSocketServer _webSocket;
         private bool _isStart = false;
+
+        /// <summary>
+        /// 协议版本号。当消息格式发生变化时递增，用于前后向兼容性检查。
+        /// </summary>
+        private const int PROTOCOL_VERSION = 1;
 
         public void Start()
         {
@@ -61,15 +66,62 @@ namespace Core.Servicers.Instances
 
         protected override void OnMessage(MessageEventArgs e)
         {
+            //  处理心跳 ping/pong（纯文本，非 JSON）
+            if (string.IsNullOrEmpty(e.Data))
+            {
+                return;
+            }
+            if (e.Data.Trim() == "ping")
+            {
+                //  回复 pong 以保持连接活跃（可选）
+                // Send("pong");
+                return;
+            }
+
             try
             {
                 var log = JsonConvert.DeserializeObject<NotifyWeb>(e.Data);
+
+                //  校验反序列化结果
+                if (log == null)
+                {
+                    LogParseFailure("反序列化结果为 null", e.Data);
+                    return;
+                }
+
+                //  校验必要字段
+                if (string.IsNullOrEmpty(log.Url))
+                {
+                    LogParseFailure("缺少必要字段 Url", e.Data);
+                    return;
+                }
+                if (log.Duration <= 0)
+                {
+                    //  时长为 0 或负数，跳过（可能是浏览器焦点切换时的零时长事件）
+                    return;
+                }
+
                 WebSocketEvent.Invoke(log);
             }
-            catch
+            catch (JsonException ex)
             {
-
+                LogParseFailure($"JSON 解析失败: {ex.Message}", e.Data);
             }
+            catch (Exception ex)
+            {
+                LogParseFailure($"未预期的异常: {ex.Message}", e.Data);
+            }
+        }
+
+        /// <summary>
+        /// 记录消息解析失败日志，包含原始消息摘要（截断至 200 字符防止日志膨胀）。
+        /// </summary>
+        private void LogParseFailure(string reason, string rawData)
+        {
+            string summary = rawData.Length > 200
+                ? rawData.Substring(0, 200) + "..."
+                : rawData;
+            Librarys.Logger.Error($"[WebServer] {reason}，原始消息摘要: {summary}");
         }
     }
 }

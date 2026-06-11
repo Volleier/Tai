@@ -1,7 +1,7 @@
 {
     "name": "Tai Sentry",
     "description": "Tai网页浏览数据统计拓展",
-    "version": "0.1",
+    "version": "1.0",
     "icons": {
         "48": "icon48.png",
         "128": "icon128.png"
