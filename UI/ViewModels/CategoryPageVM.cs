@@ -86,15 +86,15 @@ namespace UI.ViewModels
         }
 
 
-        private void OnDel(object obj)
+        private async void OnDel(object obj)
         {
             if (ShowType.Id == 0)
             {
-                DelAppCategory();
+                await DelAppCategory();
             }
             else if (ShowType.Id == 1)
             {
-                DelWebSiteCategory();
+                await DelWebSiteCategory();
             }
 
         }
@@ -311,7 +311,7 @@ namespace UI.ViewModels
         #endregion
 
         #region 删除分类
-        private async void DelAppCategory()
+        private async Task DelAppCategory()
         {
             if (SelectedAppCategoryItem == null)
             {
@@ -451,7 +451,7 @@ namespace UI.ViewModels
         #endregion
 
         #region 删除分类
-        private async void DelWebSiteCategory()
+        private async Task DelWebSiteCategory()
         {
             if (SelectedWebCategoryItem == null)
             {

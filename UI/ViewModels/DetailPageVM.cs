@@ -57,12 +57,12 @@ namespace UI.ViewModels
             ClearSelectMonthDataCommand = new Command(new Action<object>(OnClearSelectMonthDataCommand));
             RefreshCommand = new Command(new Action<object>(OnRefreshCommand));
 
-            Init();
+            _ = InitAsync();
         }
 
 
 
-        private async void Init()
+        private async Task InitAsync()
         {
             App = main.Data as AppModel;
 
