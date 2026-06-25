@@ -217,7 +217,7 @@
                                 <RowDefinition Height="auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <!--<TextBlock Text="时段" Foreground="#5c5c5c" FontSize="15" Margin="0,20,0,5"/>-->
+                            <!--<TextBlock Text="时段" Foreground="{DynamicResource DefaultTextBrush}" FontSize="15" Margin="0,20,0,5"/>-->
 
                             <Border Grid.Row="1" Margin="0,20,0,0"  Width="680" HorizontalAlignment="Left" Background="{DynamicResource SettingPanelBgBrush}" Padding="20" CornerRadius="10">
                                 <StackPanel >
@@ -256,7 +256,7 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="分类" Foreground="#5c5c5c" FontSize="15" Margin="0,20,0,5"/>
+                            <TextBlock Text="分类" Foreground="{DynamicResource DefaultTextBrush}" FontSize="15" Margin="0,20,0,5"/>
                             <Border Margin="0,5,0,0" Grid.Row="1"  Background="{DynamicResource SettingPanelBgBrush}" Padding="20" CornerRadius="10">
                                 <charts:Charts Margin="10,20,10,10" Height="230" Width="230" ChartsType="Radar" Data="{Binding RadarData}"/>
 
@@ -270,7 +270,7 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="最为频繁" Foreground="#5c5c5c" FontSize="15" Margin="0,20,0,5"/>
+                            <TextBlock Text="最为频繁" Foreground="{DynamicResource DefaultTextBrush}" FontSize="15" Margin="0,20,0,5"/>
                             <Border Grid.Row="1" Margin="0,5,0,0"  Background="{DynamicResource SettingPanelBgBrush}" Padding="20" CornerRadius="10">
                                 <charts:Charts ItemMenu="{Binding AppContextMenu}" Data="{Binding TopData}" ChartsType="List"  ClickCommand="{Binding ToDetailCommand}" IsCanScroll="False"/>
                             </Border>
@@ -286,7 +286,7 @@
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="分类" Foreground="#5c5c5c" FontSize="15" Margin="0,20,0,5"/>
+                    <TextBlock Text="分类" Foreground="{DynamicResource DefaultTextBrush}" FontSize="15" Margin="0,20,0,5"/>
                     <Border Margin="0,5,0,0" Grid.Row="1"  Background="{DynamicResource StandardBackgroundBrush}" Padding="20" CornerRadius="10">
                         <charts:Charts Margin="10,20,10,10" Height="230" Width="230" ChartsType="Radar" Data="{Binding Data}"/>
 
@@ -297,7 +297,7 @@
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="最为频繁" Foreground="#5c5c5c" FontSize="15" Margin="0,20,0,5"/>
+                    <TextBlock Text="最为频繁" Foreground="{DynamicResource DefaultTextBrush}" FontSize="15" Margin="0,20,0,5"/>
                     <Border Grid.Row="1" Margin="0,5,0,0"  Background="{DynamicResource StandardBackgroundBrush}" Padding="20" CornerRadius="10">
                         <charts:Charts  ItemMenu="{Binding AppContextMenu}" Data="{Binding TopData}" ChartsType="HorizontalA"  ClickCommand="{Binding ToDetailCommand}" IsCanScroll="False"/>
                     </Border>

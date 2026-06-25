@@ -140,8 +140,16 @@
     <!--危险警告颜色-->
     <Color x:Key="DangerColor">#f51837</Color>
     <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="DangerTextBrush" Color="{StaticResource DangerColor}" />
 
     <!--提示颜色-->
     <Color x:Key="WarningColor">#FFC408</Color>
     <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+
+    <!--卡片文字颜色（用于卡片/面板内的正文文字）-->
+    <SolidColorBrush x:Key="CardTextBrush" Color="#5c5c5c" />
+    <!--弱化文字颜色（用于辅助说明、提示文字）-->
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#9e9e9e" />
+    <!--弹窗文字颜色（用于对话框内的文字）-->
+    <SolidColorBrush x:Key="DialogTextBrush" Color="#5c5c5c" />
 </ResourceDictionary>

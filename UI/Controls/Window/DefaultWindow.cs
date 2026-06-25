@@ -5,7 +5,6 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -225,11 +224,18 @@ namespace UI.Controls.Window
         private Border ToastBorder, Masklayer, DialogBorder, InputModalBorder;
         private Grid ToastGrid;
         private DispatcherTimer toastTimer;
-        private bool IsDialogConfirm;
-        private bool IsShowConfirmDialog, IsShowInputModal;
+        /// <summary>
+        /// TaskCompletionSource 用于将确认弹窗的按钮事件转换为可等待的 Task，
+        /// 替代原先 Task.Run + while + Thread.Sleep(10) 的忙等轮询。
+        /// </summary>
+        private TaskCompletionSource<bool> _confirmTcs;
+        /// <summary>
+        /// TaskCompletionSource 用于将输入弹窗的按钮事件转换为可等待的 Task。
+        /// 取消时返回 null，不再抛出普通 Exception。
+        /// </summary>
+        private TaskCompletionSource<string> _inputTcs;
         private Button.Button CancelBtn, ConfirmBtn, InputModalCancelBtn, InputModalConfirmBtn;
         private InputBox InputModalInputBox;
-        private string InputValue;
         private Func<string, bool> InputModalValidFnc;
         #region 3.初始化
         public DefaultWindow()
@@ -344,8 +350,8 @@ namespace UI.Controls.Window
             {
                 CancelBtn.Click += (e, c) =>
                 {
-                    IsDialogConfirm = false;
                     HideDialog();
+                    _confirmTcs?.TrySetResult(false);
                 };
             }
 
@@ -353,8 +359,8 @@ namespace UI.Controls.Window
             {
                 ConfirmBtn.Click += (e, c) =>
                 {
-                    IsDialogConfirm = true;
                     HideDialog();
+                    _confirmTcs?.TrySetResult(true);
                 };
             }
 
@@ -362,8 +368,8 @@ namespace UI.Controls.Window
             {
                 InputModalCancelBtn.Click += (e, c) =>
                 {
-                    IsDialogConfirm = false;
                     HideInputModal();
+                    _inputTcs?.TrySetResult(null);
                 };
             }
 
@@ -371,22 +377,16 @@ namespace UI.Controls.Window
             {
                 InputModalConfirmBtn.Click += (e, c) =>
                 {
-                    if (InputModalValidFnc != null && !InputModalValidFnc(InputValue))
+                    if (InputModalValidFnc != null && !InputModalValidFnc(InputModalInputBox?.Text))
                     {
                         return;
                     }
-                    IsDialogConfirm = true;
                     HideInputModal();
+                    _inputTcs?.TrySetResult(InputModalInputBox?.Text);
                 };
             }
 
-            if (InputModalInputBox != null)
-            {
-                InputModalInputBox.TextChanged += (e, c) =>
-                {
-                    InputValue = InputModalInputBox.Text;
-                };
-            }
+            // InputModalInputBox 的值在确认时直接从 .Text 读取，无需额外捕获
         }
 
 
@@ -421,6 +421,9 @@ namespace UI.Controls.Window
         {
             base.OnClosed(e);
             IsWindowClosed_ = true;
+            //  窗口关闭时取消所有待处理的弹窗，防止调用方永久挂起
+            _confirmTcs?.TrySetResult(false);
+            _inputTcs?.TrySetResult(null);
         }
         #region 5.命令
 
@@ -450,7 +453,7 @@ namespace UI.Controls.Window
         {
             ToastGrid.Visibility = Visibility.Visible;
             DialogBorder.Visibility = Visibility.Collapsed;
-            if (!IsShowInputModal)
+            if (InputModalBorder?.Visibility != Visibility.Visible)
             {
                 InputModalBorder.Visibility = Visibility.Collapsed;
             }
@@ -478,7 +481,7 @@ namespace UI.Controls.Window
                 ToastGrid.MouseLeftButtonDown += ToastGrid_MouseLeftButtonDown;
             };
             storyboard.Children.Add(scrollAnimation);
-            if (!IsShowInputModal)
+            if (InputModalBorder?.Visibility != Visibility.Visible)
             {
                 storyboard.Children.Add(opacityAnimation);
             }
@@ -512,7 +515,7 @@ namespace UI.Controls.Window
             opacityAnimation.Duration = new Duration(TimeSpan.FromSeconds(0.25));
 
             storyboard.Children.Add(scrollAnimation);
-            if (!IsShowInputModal)
+            if (InputModalBorder?.Visibility != Visibility.Visible)
             {
                 storyboard.Children.Add(opacityAnimation);
                 storyboard.Completed += (e, c) =>
@@ -528,7 +531,10 @@ namespace UI.Controls.Window
         #region Dialog
         public Task<bool> ShowConfirmDialogAsync(string title_, string message_)
         {
-            IsShowConfirmDialog = true;
+            //  如果已有未完成的确认弹窗，先取消旧的
+            _confirmTcs?.TrySetResult(false);
+
+            _confirmTcs = new TaskCompletionSource<bool>();
             ToastGrid.Visibility = Visibility.Visible;
             ToastBorder.Visibility = Visibility.Collapsed;
             DialogBorder.Visibility = Visibility.Visible;
@@ -558,16 +564,7 @@ namespace UI.Controls.Window
             storyboard.Children.Add(opacityAnimation);
             storyboard.Begin();
 
-            return Task.Run(() =>
-             {
-
-                 while (IsShowConfirmDialog)
-                 {
-                     Thread.Sleep(10);
-                 }
-
-                 return IsDialogConfirm;
-             });
+            return _confirmTcs.Task;
         }
         private void HideDialog()
         {
@@ -593,7 +590,6 @@ namespace UI.Controls.Window
             storyboard.Completed += (e, c) =>
             {
                 ToastGrid.Visibility = Visibility.Collapsed;
-                IsShowConfirmDialog = false;
             };
             storyboard.Begin();
         }
@@ -602,7 +598,10 @@ namespace UI.Controls.Window
         #region InputModal
         public Task<string> ShowInputModalAsync(string title_, string message_, string value_, Func<string, bool> validFnc_)
         {
-            IsShowInputModal = true;
+            //  如果已有未完成的输入弹窗，先取消旧的（返回 null）
+            _inputTcs?.TrySetResult(null);
+
+            _inputTcs = new TaskCompletionSource<string>();
             ToastGrid.Visibility = Visibility.Visible;
             ToastBorder.Visibility = Visibility.Collapsed;
             DialogBorder.Visibility = Visibility.Collapsed;
@@ -610,10 +609,8 @@ namespace UI.Controls.Window
 
             DialogMessage = message_;
             DialogTitle = title_;
-            InputModalValue = value_;
+            InputModalInputBox.Text = value_ ?? string.Empty;
             InputModalValidFnc = validFnc_;
-
-            InputModalInputBox.Text = InputModalValue;
 
             Storyboard storyboard = new Storyboard();
 
@@ -640,23 +637,7 @@ namespace UI.Controls.Window
             };
             storyboard.Begin();
 
-            return Task.Run(() =>
-            {
-
-                while (IsShowInputModal)
-                {
-                    Thread.Sleep(10);
-                }
-
-                if (IsDialogConfirm)
-                {
-                    return InputValue;
-                }
-                else
-                {
-                    throw new Exception("Input cancel");
-                }
-            });
+            return _inputTcs.Task;
         }
         private void HideInputModal()
         {
@@ -682,7 +663,6 @@ namespace UI.Controls.Window
             storyboard.Completed += (e, c) =>
             {
                 ToastGrid.Visibility = Visibility.Collapsed;
-                IsShowInputModal = false;
             };
             storyboard.Begin();
         }

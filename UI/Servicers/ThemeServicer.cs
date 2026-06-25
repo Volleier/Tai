@@ -24,6 +24,17 @@ namespace UI.Servicers
         private Collection<ResourceDictionary> MergedDictionaries;
         private readonly string[] themeOptions = { "Light", "Dark" };
         private readonly IAppConfig appConfig;
+        /// <summary>
+        /// 当前已加载的主题资源字典和控件字典的引用。
+        /// 使用直接引用替换原先的 Source.OriginalString.Contains 字符串匹配，
+        /// 避免因 URI 格式差异导致匹配失败或误删除。
+        /// </summary>
+        private ResourceDictionary _currentThemeDict;
+        private ResourceDictionary _currentControlDict;
+        /// <summary>
+        /// 防抖保存定时器：窗口尺寸变化时延迟 500ms 再落盘。
+        /// </summary>
+        private System.Windows.Threading.DispatcherTimer _saveSizeTimer;
 
         public event EventHandler OnThemeChanged;
 
@@ -34,6 +45,15 @@ namespace UI.Servicers
             appConfig.ConfigChanged += AppConfig_ConfigChanged;
 
             MergedDictionaries = Application.Current.Resources.MergedDictionaries;
+
+            //  初始化防抖保存定时器：窗口尺寸变化停止 500ms 后才落盘
+            _saveSizeTimer = new System.Windows.Threading.DispatcherTimer();
+            _saveSizeTimer.Interval = TimeSpan.FromMilliseconds(500);
+            _saveSizeTimer.Tick += (s, e) =>
+            {
+                _saveSizeTimer.Stop();
+                SaveWindowSize();
+            };
         }
 
         private void AppConfig_ConfigChanged(Core.Models.Config.ConfigModel oldConfig, Core.Models.Config.ConfigModel newConfig)
@@ -80,46 +100,36 @@ namespace UI.Servicers
                 return;
             }
 
-            //Collection<ResourceDictionary> resourceDictionaries = Application.Current.Resources.MergedDictionaries;
-            //for (int i = 0; i < resourceDictionaries.Count; i++)
-            //{
-            //    ResourceDictionary resourceDictionary = resourceDictionaries[i];
-            //    //if (resourceDictionary.FindName(""))
-            //    //{
-            //    if (resourceDictionary.Contains("ThemeName"))
-            //    {
-            //        foreach(var key in resourceDictionary.Keys)
-            //        {
-            //            resourceDictionary[key] = themeDict[key];
-            //        }
-            //        //resourceDictionary["ThemeColor"] = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#ff0000");
-            //    }
-            //    //}
-            //}
-            //清除旧主题
-            if (this.themeName != null)
+            //  通过直接引用移除旧字典（不再依赖 Source.OriginalString.Contains 字符串匹配）
+            if (_currentThemeDict != null)
             {
-                var oldStyles = MergedDictionaries.Where(m => m.Source.OriginalString.Contains(this.themeName) || m.Source.OriginalString.Contains("Generic")).ToList();
-                if (oldStyles != null)
+                MergedDictionaries.Remove(_currentThemeDict);
+            }
+            if (_currentControlDict != null)
+            {
+                MergedDictionaries.Remove(_currentControlDict);
+            }
+
+            //  首次加载时，还需清理 App.xaml 中预加载的 Light.xaml 等旧主题字典。
+            //  这些字典不在引用追踪范围内（_currentThemeDict 初始为 null），
+            //  若不清理会排在 MergedDictionaries 最前面，导致新主题被覆盖失效。
+            if (this.themeName == null)
+            {
+                var preloaded = MergedDictionaries
+                    .Where(m => m.Source != null
+                        && themeOptions.Any(t => m.Source.OriginalString.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0))
+                    .ToList();
+                foreach (var dict in preloaded)
                 {
-                    foreach (var oldStyle in oldStyles)
-                    {
-                        MergedDictionaries.Remove(oldStyle);
-                    }
+                    MergedDictionaries.Remove(dict);
                 }
             }
 
             MergedDictionaries.Add(themeDict);
             MergedDictionaries.Add(controlDict);
 
-            //if (configDict != null)
-            //{
-            //    //MergedDictionaries.Add(configDict);
-            //}
-            //if (controlDict != null)
-            //{
-            //    MergedDictionaries.Add(controlDict);
-            //}
+            _currentThemeDict = themeDict;
+            _currentControlDict = controlDict;
             this.themeName = themeName;
 
             UpdateWindowStyle();
@@ -166,11 +176,29 @@ namespace UI.Servicers
             }
         }
 
+        /// <summary>
+        /// 窗口尺寸变化事件。
+        /// 原先每次 SizeChanged 都直接调用 appConfig.Save() 落盘，
+        /// 拖拽窗口时可能触发数十次/秒的磁盘 IO。现改为防抖：缓存尺寸，
+        /// 停止拖拽 500ms 后才执行一次保存。
+        /// </summary>
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
+            //  仅缓存最新尺寸，不立即落盘
             var config = appConfig.GetConfig();
             config.General.WindowWidth = mainWindow.ActualWidth;
             config.General.WindowHeight = mainWindow.ActualHeight;
+
+            //  重启防抖定时器：每次 SizeChanged 都重置倒计时
+            _saveSizeTimer.Stop();
+            _saveSizeTimer.Start();
+        }
+
+        /// <summary>
+        /// 实际执行窗口尺寸落盘。
+        /// </summary>
+        private void SaveWindowSize()
+        {
             appConfig.Save();
         }
 

@@ -77,7 +77,7 @@ namespace Core.Servicers.Instances
                         app.Alias = app_.Alias;
                         db.SaveChanges();
                     }
-                    _databse.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
             }
             catch (Exception e)
@@ -119,7 +119,7 @@ namespace Core.Servicers.Instances
 
                             _apps.Add(app);
                         }
-                        _databse.CloseWriter();
+                        //  写入信号量由 using Dispose 自动释放
                     }
                 }
                 catch (Exception e)

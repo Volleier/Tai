@@ -8,6 +8,8 @@ const RENOTIFY_MS = 10 * 1000;
 const RECONNECTFAIL_SLEEP = 5;
 //  Tai WS服务器URL
 const WSURL = 'ws://127.0.0.1:8908/TaiWebSentry';
+//  协议版本号（与 Tai 桌面端保持一致）
+const PROTOCOL_VERSION = 1;
 
 let webSocket = null;
 let isConnected = false;
@@ -205,12 +207,26 @@ function renotify() {
  * 通知Tai更新数据
  * @param {*} data 统计数据
  */
+/**
+ * 通知Tai更新数据。
+ *
+ * 消息格式（协议版本 1）：
+ * {
+ *   Url:        string,  // 当前浏览的网页 URL（必填）
+ *   Title:      string,  // 网页标题
+ *   Icon:       string,  // 网页 favicon URL
+ *   Duration:   number,  // 浏览时长（秒，必填，>0）
+ *   ActiveTime: number,  // 浏览起始时间（Unix 时间戳，秒）
+ *   Version:    number   // 协议版本号（当前为 1）
+ * }
+ */
 function notifyTai(data = {
     Url,
     Title,
     Icon,
     Duration,
-    ActiveTime
+    ActiveTime,
+    Version: PROTOCOL_VERSION
 }) {
     console.log("notify", data);
     if (isConnected && webSocket) {
@@ -274,7 +290,7 @@ function calDuration() {
         let activeTime = parseInt(activePage.startTime / 1000);
         const { url: Url, title: Title, icon: Icon } = activePage;
         activePage = null;
-        notifyTai({ Url, Title, Icon, Duration: duration, ActiveTime: activeTime });
+        notifyTai({ Url, Title, Icon, Duration: duration, ActiveTime: activeTime, Version: PROTOCOL_VERSION });
     }
 }
 

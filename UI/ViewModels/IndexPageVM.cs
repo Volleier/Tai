@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
+//  System.Windows 已导入，Application.Current.Dispatcher 可用
 using UI.Controls;
 using UI.Controls.Charts.Model;
 using UI.Controls.Select;
@@ -180,10 +181,14 @@ namespace UI.ViewModels
                 var list = data.GetDateRangelogList(DateTime.Now.Date, DateTime.Now.Date);
                 var res = MapToChartsData(list);
                 var topWebList = _webData.GetDateRangeWebSiteList(DateTime.Now, DateTime.Now, FrequentUseNum);
+                var webData = MapToChartsData(topWebList);
 
-                IsLoading = false;
-                WeekData = res;
-                WebFrequentUseData = MapToChartsData(topWebList);
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsLoading = false;
+                    WeekData = res;
+                    WebFrequentUseData = webData;
+                });
             });
         }
 
@@ -194,10 +199,15 @@ namespace UI.ViewModels
             {
                 var appMoreData = data.GetDateRangelogList(DateTime.Now.Date, DateTime.Now.Date, MoreNum, FrequentUseNum);
                 var webMoreData = _webData.GetDateRangeWebSiteList(DateTime.Now.Date, DateTime.Now.Date, MoreNum, FrequentUseNum);
+                var appMapped = MapToChartsData(appMoreData);
+                var webMapped = MapToChartsData(webMoreData);
 
-                IsLoading = false;
-                AppMoreData = MapToChartsData(appMoreData);
-                WebMoreData = MapToChartsData(webMoreData);
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsLoading = false;
+                    AppMoreData = appMapped;
+                    WebMoreData = webMapped;
+                });
             });
         }
         #endregion
@@ -214,10 +224,14 @@ namespace UI.ViewModels
 
                    var week = Time.GetThisWeekDate();
                    var topWebList = _webData.GetDateRangeWebSiteList(week[0], week[1], FrequentUseNum);
+                   var webData = MapToChartsData(topWebList);
 
-                   IsLoading = false;
-                   WeekData = res;
-                   WebFrequentUseData = MapToChartsData(topWebList);
+                   Application.Current.Dispatcher.InvokeAsync(() =>
+                   {
+                       IsLoading = false;
+                       WeekData = res;
+                       WebFrequentUseData = webData;
+                   });
                });
 
 
@@ -231,10 +245,15 @@ namespace UI.ViewModels
                 var week = Time.GetThisWeekDate();
                 var appMoreData = data.GetDateRangelogList(week[0], week[1], MoreNum, FrequentUseNum);
                 var webMoreData = _webData.GetDateRangeWebSiteList(week[0], week[1], MoreNum, FrequentUseNum);
+                var appMapped = MapToChartsData(appMoreData);
+                var webMapped = MapToChartsData(webMoreData);
 
-                IsLoading = false;
-                AppMoreData = MapToChartsData(appMoreData);
-                WebMoreData = MapToChartsData(webMoreData);
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsLoading = false;
+                    AppMoreData = appMapped;
+                    WebMoreData = webMapped;
+                });
             });
         }
         #endregion
@@ -256,8 +275,11 @@ namespace UI.ViewModels
             {
                 var list = data.GetLastWeeklogList();
                 var res = MapToChartsData(list);
-                IsLoading = false;
-                WeekData = res;
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsLoading = false;
+                    WeekData = res;
+                });
             });
 
         }

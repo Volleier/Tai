@@ -96,32 +96,27 @@ namespace UI.Servicers
             var data = _menu.Tag as ChartsDataModel;
             var site = data.Data as WebSiteModel;
 
-            try
+            string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", site.Alias, (val) =>
             {
-                string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", site.Alias, (val) =>
+                if (val.Length > 15)
                 {
-                    if (val.Length > 15)
-                    {
-                        _main.Error("别名最大长度为15位字符");
-                        return false;
-                    }
-                    return true;
-                });
+                    _main.Error("别名最大长度为15位字符");
+                    return false;
+                }
+                return true;
+            });
 
-                //  开始更新别名
+            if (input == null) return; //  用户取消了输入
 
-                data.Name = string.IsNullOrEmpty(input) ? site.Title : input;
-                site.Alias = input;
+            //  开始更新别名
 
-                _webData.Update(site);
+            data.Name = string.IsNullOrEmpty(input) ? site.Title : input;
+            site.Alias = input;
 
-                _main.Success("别名已更新");
-                Debug.WriteLine("输入内容：" + input);
-            }
-            catch
-            {
-                //  输入取消，无需处理异常
-            }
+            _webData.Update(site);
+
+            _main.Success("别名已更新");
+            Debug.WriteLine("输入内容：" + input);
         }
 
         private void _menu_ContextMenuOpening(object sender, ContextMenuEventArgs e)

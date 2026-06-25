@@ -24,7 +24,7 @@
                     </Grid.RowDefinitions>
                     <Grid>
                         <TextBlock Text="选择站点" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                        <Button:IconButton Foreground="#ccc" Icon="ChromeClose" HorizontalAlignment="Right" FontSize="12" Margin="0,0,10,0" Command="{Binding ChooseCloseCommand}"/>
+                        <Button:IconButton Foreground="{DynamicResource DisabledTextBrush}" Icon="ChromeClose" HorizontalAlignment="Right" FontSize="12" Margin="0,0,10,0" Command="{Binding ChooseCloseCommand}"/>
                     </Grid>
                     <Border Grid.Row="1">
                         <input:InputBox Placeholder="搜索" Margin="10" x:Name="SearchBox" Text="{Binding SearchInput,Mode=TwoWay}">
@@ -99,7 +99,7 @@
             </Grid.RowDefinitions>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
                 <TextBlock FontSize="18"  Text="网站分类"/>
-                <base:Icon IconType="ChevronRightMed" Margin="10,0" FontSize="12" Foreground="#ccc"/>
+                <base:Icon IconType="ChevronRightMed" Margin="10,0" FontSize="12" Foreground="{DynamicResource DisabledTextBrush}"/>
                 <TextBlock FontSize="18"  Text="{Binding Category.Name}"/>
 
             </StackPanel>

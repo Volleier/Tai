@@ -34,13 +34,13 @@ namespace UI.Servicers
             _statusBarIconServicer = statusBarIconServicer_;
             _config = config_;
         }
-        public void Start(bool isSelfStart)
+        public async void Start(bool isSelfStart)
         {
             this.isSelfStart = isSelfStart;
             _statusBarIconServicer.Init();
 
             main.OnStarted += Main_OnStarted;
-            main.Run();
+            await main.Run();
         }
 
         private void Main_OnStarted(object sender, EventArgs e)

@@ -68,7 +68,7 @@ namespace UI.Servicers
 
             SetIcon(IconType.Busy);
 
-            WatchStateAsync();
+            _ = WatchStateAsync();
 
             _appObserver.OnAppActiveChanged += _appObserver_OnAppActiveChanged; ;
             _themeServicer.OnThemeChanged += _themeServicer_OnThemeChanged;
@@ -118,15 +118,18 @@ namespace UI.Servicers
         }
 
         /// <summary>
-        /// 等待程序加载
+        /// 等待程序加载完成。
+        /// 原先使用 while (IsLoading) 空转循环（无节流），
+        /// 现改为 Task.Delay 轮询，每 200ms 更新一次托盘文本，避免空转占用 CPU。
         /// </summary>
-        private async void WatchStateAsync()
+        private async Task WatchStateAsync()
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 while (AppState.IsLoading)
                 {
                     _statusBarIcon.Text = $"[{AppState.ProcessValue}%] Tai [{AppState.ActionText}]";
+                    await Task.Delay(200);
                 }
                 _statusBarIcon.Text = "Tai!";
                 SetIcon();

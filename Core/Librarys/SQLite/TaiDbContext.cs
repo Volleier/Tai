@@ -45,6 +45,11 @@ namespace Core.Librarys.SQLite
         public DbSet<WebUrlModel> WebUrls { get; set; }
 
         private static string _dbFilePath = Path.Combine(FileHelper.GetRootDirectory(), "Data", "data.db");
+        /// <summary>
+        /// 当 DbContext 被 Dispose 时触发的回调，用于释放写入信号量等外部资源。
+        /// </summary>
+        private Action _onDisposed;
+
         public TaiDbContext()
        : base(new SQLiteConnection()
        {
@@ -53,6 +58,25 @@ namespace Core.Librarys.SQLite
        }, true)
         {
             DbConfiguration.SetConfiguration(new SQLiteConfiguration());
+        }
+
+        /// <summary>
+        /// 设置一个回调，在 DbContext 被释放时调用。
+        /// 用于自动释放写入信号量（SemaphoreSlim），避免因调用方忘记 CloseWriter 导致死锁。
+        /// </summary>
+        internal void SetOnDisposed(Action action_)
+        {
+            _onDisposed = action_;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _onDisposed?.Invoke();
+                _onDisposed = null;
+            }
+            base.Dispose(disposing);
         }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)

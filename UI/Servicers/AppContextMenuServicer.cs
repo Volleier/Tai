@@ -112,31 +112,26 @@ namespace UI.Servicers
                 app = (data.Data as HoursLogModel).AppModel;
             }
 
-            try
-            {
-                string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", app.Alias, (val) =>
-                 {
-                     if (val.Length > 15)
-                     {
-                         main.Error("别名最大长度为15位字符");
-                         return false;
-                     }
-                     return true;
-                 });
+            string input = await _uIServicer.ShowInputModalAsync("修改别名", "请输入别名", app.Alias, (val) =>
+                {
+                    if (val.Length > 15)
+                    {
+                        main.Error("别名最大长度为15位字符");
+                        return false;
+                    }
+                    return true;
+                });
 
-                //  开始更新别名
-                var editApp = appData.GetApp(app.ID);
-                editApp.Alias = input;
-                appData.UpdateApp(editApp);
-                data.Name = string.IsNullOrEmpty(input) ? editApp.Description : input;
+            if (input == null) return; //  用户取消了输入
 
-                main.Success("别名已更新");
-                Debug.WriteLine("输入内容：" + input);
-            }
-            catch
-            {
-                //  输入取消，无需处理异常
-            }
+            //  开始更新别名
+            var editApp = appData.GetApp(app.ID);
+            editApp.Alias = input;
+            appData.UpdateApp(editApp);
+            data.Name = string.IsNullOrEmpty(input) ? editApp.Description : input;
+
+            main.Success("别名已更新");
+            Debug.WriteLine("输入内容：" + input);
         }
 
         private void _whiteList_Click(object sender, System.Windows.RoutedEventArgs e)

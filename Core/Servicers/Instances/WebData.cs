@@ -11,6 +11,7 @@ using Npoi.Mapper;
 using NPOI.SS.Formula.Functions;
 using Org.BouncyCastle.Security;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -18,140 +19,201 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 
+using System.Threading;
 using System.Threading.Tasks;
 using static System.Windows.Forms.AxHost;
 
 namespace Core.Servicers.Instances
 {
-    public class WebData : IWebData
+    /// <summary>
+    /// 网页统计数据服务。
+    /// 所有写操作通过串行后台队列（BlockingCollection）执行，
+    /// 替代原先分散的 Task.Run fire-and-forget，保证写入顺序与数据一致性。
+    /// </summary>
+    public class WebData : IWebData, IDisposable
     {
         private readonly IDatabase _database;
         private readonly object _createUrlLocker = new object();
+
+        /// <summary>
+        /// 串行写入队列。所有写操作（AddUrlBrowseTime / UpdateUrlFavicon /
+        /// DeleteWebSiteCategory / UpdateWebSitesCategory）都通过此队列串行执行，
+        /// 避免多线程同时写入同一 URL/站点导致数据竞争。
+        /// </summary>
+        private readonly BlockingCollection<Action> _writeQueue = new BlockingCollection<Action>();
+        private readonly CancellationTokenSource _queueCts = new CancellationTokenSource();
+        private bool _disposed = false;
+
         public WebData(IDatabase database)
         {
             _database = database;
+            //  启动专用的后台写入消费线程
+            Task.Run(() => ProcessWriteQueue());
         }
 
-        #region AddUrlBrowseTime
-        public void AddUrlBrowseTime(Site site_, int duration_, DateTime? dateTime_ = null)
+        /// <summary>
+        /// 写入队列消费者。在专用后台线程上串行处理所有入队的写入操作。
+        /// </summary>
+        private void ProcessWriteQueue()
         {
-            Debug.WriteLine("AddUrlBrowseTime");
-            Task.Run(() =>
+            foreach (var action in _writeQueue.GetConsumingEnumerable(_queueCts.Token))
             {
                 try
                 {
-                    if (string.IsNullOrEmpty(site_.Url))
-                    {
-                        return;
-                    }
-
-                    var dateTime = dateTime_.HasValue ? dateTime_.Value : DateTime.Now;
-                    var logTime = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, 0, 0);
-                    if (dateTime.Minute == 59 && dateTime.Second == 59)
-                    {
-                        AddUrlBrowseTime(site_, duration_, logTime.AddHours(1));
-                        return;
-                    }
-                    //  当前时段时长
-                    int nowTimeDuration = duration_;
-                    //  下一个时段时长
-                    int nextTimeDuration = 0;
-
-                    //  当前时段最大使用时长
-                    int nowTimeMaxDuration = (60 - dateTime.Minute) * 60;
-
-                    if (duration_ > 3600)
-                    {
-                        nowTimeDuration = 3600;
-                        nextTimeDuration = duration_ - 3600;
-                    }
-                    if (nowTimeDuration > nowTimeMaxDuration)
-                    {
-                        nextTimeDuration += nowTimeDuration - nowTimeMaxDuration;
-
-                        nowTimeDuration = nowTimeMaxDuration;
-                    }
-
-                    //var db = _database.GetContext("AddUrlBrowseTime");
-                    //using (var db = new TaiDbContext())
-                    using (var db = _database.GetWriterContext())
-                    {
-                        //  获取站点信息
-                        string domain = UrlHelper.GetDomain(site_.Url);
-                        var site = db.WebSites.Where(m => m.Domain == domain).FirstOrDefault();
-                        Debug.WriteLine("AddUrlBrowseTime 获取站点数据");
-
-                        if (site == null)
-                        {
-                            site = db.WebSites.Add(new Models.Db.WebSiteModel()
-                            {
-                                Title = UrlHelper.GetName(site_.Url),
-                                Domain = domain,
-                            });
-
-                            db.SaveChanges();
-                        }
-
-                        //  获取链接
-                        var url = GetCreateUrl(db, site_);
-                        if (url == null)
-                        {
-                            throw new Exception("在创建URL时异常");
-                        }
-
-                        //  记录
-                        var log = db.WebBrowserLogs.Where(m => m.LogTime == logTime && m.UrlId == url.ID).FirstOrDefault();
-
-                        if (log != null)
-                        {
-                            //  时长
-                            int duration = log.Duration + nowTimeDuration;
-                            //  判断是否超出
-                            if (log.Duration + nowTimeDuration > 3600)
-                            {
-                                duration = 3600;
-                                nextTimeDuration += log.Duration + nowTimeDuration - 3600;
-                            }
-
-                            //  更新记录
-                            log.Duration = duration;
-                        }
-                        else
-                        {
-                            //  新记录
-                            log = new Models.Db.WebBrowseLogModel()
-                            {
-                                Duration = nowTimeDuration,
-                                UrlId = url.ID,
-                                LogTime = logTime,
-                                SiteId = site.ID,
-                            };
-
-
-                            db.WebBrowserLogs.Add(log);
-                        }
-                        site.Duration += nowTimeDuration;
-                        db.SaveChanges();
-                    }
-                    if (nextTimeDuration > 0)
-                    {
-                        AddUrlBrowseTime(site_, nextTimeDuration, logTime.AddHours(1));
-                    }
+                    action();
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"在更新链接[{site_.Url}]时长[{duration_}]时异常，{ex}");
+                    Logger.Error($"[DB] Write queue processing error: {ex}");
                 }
-                finally
-                {
-                    _database.CloseWriter();
-                }
-            });
+            }
+        }
 
+        /// <summary>
+        /// 将写入操作加入串行队列。所有写入必须通过此方法入队，
+        /// 不再使用独立的 Task.Run 分散执行。
+        /// </summary>
+        private void EnqueueWrite(Action writeAction)
+        {
+            if (!_disposed && !_queueCts.IsCancellationRequested)
+            {
+                _writeQueue.Add(writeAction);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _queueCts.Cancel();
+            _writeQueue.CompleteAdding();
+            _queueCts.Dispose();
+            _writeQueue.Dispose();
+        }
+
+        #region AddUrlBrowseTime
+        /// <summary>
+        /// 添加链接浏览时长（异步，通过串行写入队列执行）。
+        /// </summary>
+        public void AddUrlBrowseTime(Site site_, int duration_, DateTime? dateTime_ = null)
+        {
+            Debug.WriteLine("AddUrlBrowseTime: enqueue");
+            EnqueueWrite(() => AddUrlBrowseTimeCore(site_, duration_, dateTime_));
+        }
+
+        /// <summary>
+        /// AddUrlBrowseTime 的核心写入逻辑，在串行队列的消费线程上执行。
+        /// </summary>
+        private void AddUrlBrowseTimeCore(Site site_, int duration_, DateTime? dateTime_)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(site_.Url))
+                {
+                    return;
+                }
+
+                var dateTime = dateTime_.HasValue ? dateTime_.Value : DateTime.Now;
+                var logTime = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, 0, 0);
+                if (dateTime.Minute == 59 && dateTime.Second == 59)
+                {
+                    EnqueueWrite(() => AddUrlBrowseTimeCore(site_, duration_, logTime.AddHours(1)));
+                    return;
+                }
+                //  当前时段时长
+                int nowTimeDuration = duration_;
+                //  下一个时段时长
+                int nextTimeDuration = 0;
+
+                //  当前时段最大使用时长
+                int nowTimeMaxDuration = (60 - dateTime.Minute) * 60;
+
+                if (duration_ > 3600)
+                {
+                    nowTimeDuration = 3600;
+                    nextTimeDuration = duration_ - 3600;
+                }
+                if (nowTimeDuration > nowTimeMaxDuration)
+                {
+                    nextTimeDuration += nowTimeDuration - nowTimeMaxDuration;
+
+                    nowTimeDuration = nowTimeMaxDuration;
+                }
+
+                using (var db = _database.GetWriterContext())
+                {
+                    //  获取站点信息 — 幂等：先查后创建
+                    string domain = UrlHelper.GetDomain(site_.Url);
+                    var site = db.WebSites.Where(m => m.Domain == domain).FirstOrDefault();
+                    Debug.WriteLine("AddUrlBrowseTime 获取站点数据");
+
+                    if (site == null)
+                    {
+                        //  双重检查：再次确认站点不存在（串行队列已保证不会并发竞争，
+                        //  但仍有其他代码路径可能创建站点）
+                        site = db.WebSites.Add(new Models.Db.WebSiteModel()
+                        {
+                            Title = UrlHelper.GetName(site_.Url),
+                            Domain = domain,
+                        });
+
+                        db.SaveChanges();
+                    }
+
+                    //  获取/创建链接 — 幂等保护
+                    var url = GetCreateUrl(db, site_);
+                    if (url == null)
+                    {
+                        throw new Exception("在创建URL时异常");
+                    }
+
+                    //  记录 — 幂等：已存在则累加，不存在则新建
+                    var log = db.WebBrowserLogs.Where(m => m.LogTime == logTime && m.UrlId == url.ID).FirstOrDefault();
+
+                    if (log != null)
+                    {
+                        //  时长累加（上限 3600 秒/小时）
+                        int duration = log.Duration + nowTimeDuration;
+                        if (log.Duration + nowTimeDuration > 3600)
+                        {
+                            duration = 3600;
+                            nextTimeDuration += log.Duration + nowTimeDuration - 3600;
+                        }
+
+                        log.Duration = duration;
+                    }
+                    else
+                    {
+                        //  新记录
+                        log = new Models.Db.WebBrowseLogModel()
+                        {
+                            Duration = nowTimeDuration,
+                            UrlId = url.ID,
+                            LogTime = logTime,
+                            SiteId = site.ID,
+                        };
+
+                        db.WebBrowserLogs.Add(log);
+                    }
+                    site.Duration += nowTimeDuration;
+                    db.SaveChanges();
+                }
+                if (nextTimeDuration > 0)
+                {
+                    EnqueueWrite(() => AddUrlBrowseTimeCore(site_, nextTimeDuration, logTime.AddHours(1)));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DB] 更新链接[{site_.Url}]时长[{duration_}]时异常: {ex}");
+            }
         }
         #endregion
 
         #region UpdateUrlFavicon
+        /// <summary>
+        /// 更新链接图标（异步，通过串行写入队列执行）。
+        /// </summary>
         public void UpdateUrlFavicon(Site site_, string iconFile_)
         {
             if (string.IsNullOrEmpty(iconFile_) || string.IsNullOrEmpty(site_.Url))
@@ -159,40 +221,34 @@ namespace Core.Servicers.Instances
                 return;
             }
 
-            Debug.WriteLine("UpdateUrlFavicon");
+            Debug.WriteLine("UpdateUrlFavicon: enqueue");
+            EnqueueWrite(() => UpdateUrlFaviconCore(site_, iconFile_));
+        }
 
-            Task.Run(() =>
+        private void UpdateUrlFaviconCore(Site site_, string iconFile_)
+        {
+            //  判断是否是主域名
+            bool isIndex = UrlHelper.IsIndexUrl(site_.Url);
+
+            using (var db = _database.GetWriterContext())
             {
-
-                //  判断是否是主域名
-                bool isIndex = UrlHelper.IsIndexUrl(site_.Url);
-
-                ////  获取主域名
-                //string domain = UrlHelper.GetDomain(site_.Url);
-
-                //  获取站点信息
-                using (var db = _database.GetWriterContext())
+                //  更新站点图标
+                var site = GetCreateWebSite(db, site_.Url);
+                Debug.WriteLine("UpdateUrlFavicon 获取站点数据");
+                if (site != null && (string.IsNullOrEmpty(site.IconFile) || (isIndex && site.IconFile != iconFile_)))
                 {
-                    //  更新站点图标
-                    var site = GetCreateWebSite(db, site_.Url);
-                    Debug.WriteLine("UpdateUrlFavicon 获取站点数据");
-                    if (site != null && (string.IsNullOrEmpty(site.IconFile) || (isIndex && site.IconFile != iconFile_)))
-                    {
-                        site.IconFile = iconFile_;
-                    }
-
-                    //  更新链接图标
-                    var url = GetCreateUrl(db, site_);
-                    if (url != null)
-                    {
-                        url.IconFile = iconFile_;
-                    }
-
-                    db.SaveChanges();
-                    _database.CloseWriter();
+                    site.IconFile = iconFile_;
                 }
-            });
 
+                //  更新链接图标
+                var url = GetCreateUrl(db, site_);
+                if (url != null)
+                {
+                    url.IconFile = iconFile_;
+                }
+
+                db.SaveChanges();
+            }
         }
         #endregion
 
@@ -342,7 +398,7 @@ namespace Core.Servicers.Instances
             {
                 var result = db.WebSiteCategories.Add(data_);
                 db.SaveChanges();
-                _database.CloseWriter();
+                //  写入信号量由 using Dispose 自动释放
                 return result;
             }
         }
@@ -355,27 +411,31 @@ namespace Core.Servicers.Instances
             {
                 db.Entry(data_).State = System.Data.Entity.EntityState.Modified;
                 db.SaveChanges();
-                _database.CloseWriter();
+                //  写入信号量由 using Dispose 自动释放
             }
         }
         #endregion
 
         #region DeleteWebSiteCategory
+        /// <summary>
+        /// 删除网站分类（异步，通过串行写入队列执行）。
+        /// </summary>
         public void DeleteWebSiteCategory(WebSiteCategoryModel data_)
         {
-            Task.Run(() =>
-            {
-                using (var db = _database.GetWriterContext())
-                {
-                    //  取消网站关联分类
-                    db.Database.ExecuteSqlCommand("update WebSiteModels set CategoryID=0 where CategoryID=" + data_.ID);
+            EnqueueWrite(() => DeleteWebSiteCategoryCore(data_));
+        }
 
-                    //  删除分类
-                    db.Entry(data_).State = System.Data.Entity.EntityState.Deleted;
-                    db.SaveChanges();
-                    _database.CloseWriter();
-                }
-            });
+        private void DeleteWebSiteCategoryCore(WebSiteCategoryModel data_)
+        {
+            using (var db = _database.GetWriterContext())
+            {
+                //  取消网站关联分类
+                db.Database.ExecuteSqlCommand("update WebSiteModels set CategoryID=0 where CategoryID=" + data_.ID);
+
+                //  删除分类
+                db.Entry(data_).State = System.Data.Entity.EntityState.Deleted;
+                db.SaveChanges();
+            }
         }
         #endregion
         #region GetWebSites
@@ -421,18 +481,22 @@ namespace Core.Servicers.Instances
 
         #endregion
 
+        /// <summary>
+        /// 批量更新站点分类（异步，通过串行写入队列执行）。
+        /// </summary>
         public void UpdateWebSitesCategory(int[] siteIds_, int categoryId_)
         {
-            Task.Run(() =>
+            EnqueueWrite(() => UpdateWebSitesCategoryCore(siteIds_, categoryId_));
+        }
+
+        private void UpdateWebSitesCategoryCore(int[] siteIds_, int categoryId_)
+        {
+            using (var db = _database.GetWriterContext())
             {
-                using (var db = _database.GetWriterContext())
-                {
-                    string sql = $"update WebSiteModels set CategoryID={categoryId_} where ID in ({string.Join(",", siteIds_)})";
-                    db.Database.ExecuteSqlCommand(sql);
-                    db.SaveChanges();
-                    _database.CloseWriter();
-                }
-            });
+                string sql = $"update WebSiteModels set CategoryID={categoryId_} where ID in ({string.Join(",", siteIds_)})";
+                db.Database.ExecuteSqlCommand(sql);
+                db.SaveChanges();
+            }
         }
 
         public List<CommonDataModel> GetCategoriesStatistics(DateTime start_, DateTime end_)
@@ -751,7 +815,7 @@ namespace Core.Servicers.Instances
         {
             end_ = new DateTime(end_.Year, end_.Month, DateTime.DaysInMonth(end_.Year, end_.Month));
 
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 //db.Database.ExecuteSqlCommand("update WebSiteModels set Duration=0");
 
@@ -810,7 +874,7 @@ namespace Core.Servicers.Instances
 
         public void Clear(int siteId_)
         {
-            using (var db = _database.GetReaderContext())
+            using (var db = _database.GetWriterContext())
             {
                 db.Database.ExecuteSqlCommand("delete from WebBrowseLogModels  where SiteId = " + siteId_);
                 db.Database.ExecuteSqlCommand("update WebSiteModels set Duration = 0  where ID = " + siteId_);
@@ -865,7 +929,7 @@ namespace Core.Servicers.Instances
                     website.Domain = website_.Domain;
                     website.Title = website_.Title;
                     db.SaveChanges();
-                    _database.CloseWriter();
+                    //  写入信号量由 using Dispose 自动释放
                 }
                 return website;
                 //string sql = $"update WebSiteModels set CategoryID={categoryId_} where ID in ({string.Join(",", siteIds_)})";

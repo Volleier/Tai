@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
+using System.Windows;
 using UI.Controls;
 using UI.Controls.Charts.Model;
 using UI.Models;
@@ -183,19 +184,22 @@ namespace UI.ViewModels
                     chartData = MapToChartsWebData(result);
                 }
 
-
-                if (dataType_ == 0)
+                //  切回 UI 线程更新绑定属性
+                Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    Data = chartData;
-                }
-                else if (dataType_ == 1)
-                {
-                    MonthData = chartData;
-                }
-                else
-                {
-                    YearData = chartData;
-                }
+                    if (dataType_ == 0)
+                    {
+                        Data = chartData;
+                    }
+                    else if (dataType_ == 1)
+                    {
+                        MonthData = chartData;
+                    }
+                    else
+                    {
+                        YearData = chartData;
+                    }
+                });
 
             });
         }
