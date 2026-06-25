@@ -881,7 +881,7 @@ namespace Core.Servicers.Instances
             }
         }
 
-        public void Export(string dir_, DateTime start_, DateTime end_)
+        public void Export(string dir_, DateTime start_, DateTime end_, bool isCsv = false)
         {
             start_ = new DateTime(start_.Year, start_.Month, 1, 0, 0, 0);
             end_ = new DateTime(end_.Year, end_.Month, DateTime.DaysInMonth(end_.Year, end_.Month), 23, 59, 59);
@@ -899,22 +899,25 @@ namespace Core.Servicers.Instances
                     });
 
 
-                var mapper = new Mapper();
-                mapper.Put(webSiteData, "浏览记录");
-
                 string name = $"Tai网页统计数据({start_.ToString("yyyy年MM月")}-{end_.ToString("yyyy年MM月")})";
                 if (start_.Year == end_.Year && start_.Month == end_.Month)
                 {
                     name = $"Tai网页统计数据({start_.ToString("yyyy年MM月")})";
                 }
-                mapper.Save(Path.Combine(dir_, $"{name}.xlsx"));
 
-                //  导出csv
-                //  UTF8Encoding(true) 生成带 BOM 的 UTF-8，确保 Excel 能正确识别中文编码
-                using (var writer = new StreamWriter(Path.Combine(dir_, $"{name}.csv"), false, new System.Text.UTF8Encoding(true)))
-                using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                if (isCsv)
                 {
-                    csv.WriteRecords(webSiteData);
+                    using (var writer = new StreamWriter(Path.Combine(dir_, $"{name}.csv"), false, new System.Text.UTF8Encoding(true)))
+                    using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                    {
+                        csv.WriteRecords(webSiteData);
+                    }
+                }
+                else
+                {
+                    var mapper = new Mapper();
+                    mapper.Put(webSiteData, "浏览记录");
+                    mapper.Save(Path.Combine(dir_, $"{name}.xlsx"));
                 }
             }
         }

@@ -29,7 +29,8 @@ namespace UI.ViewModels
         public Command OpenURL { get; set; }
         public Command CheckUpdate { get; set; }
         public Command DelDataCommand { get; set; }
-        public Command ExportDataCommand { get; set; }
+        public Command ExportAppDataCommand { get; set; }
+        public Command ExportWebDataCommand { get; set; }
 
         public SettingPageVM(IAppConfig appConfig, MainViewModel mainVM, IData data, IWebData webData, IUIServicer uiServicer_)
         {
@@ -42,7 +43,8 @@ namespace UI.ViewModels
             OpenURL = new Command(new Action<object>(OnOpenURL));
             CheckUpdate = new Command(new Action<object>(OnCheckUpdate));
             DelDataCommand = new Command(new Action<object>(OnDelData));
-            ExportDataCommand = new Command(new Action<object>(OnExportData));
+            ExportAppDataCommand = new Command(new Action<object>(OnExportAppData));
+            ExportWebDataCommand = new Command(new Action<object>(OnExportWebData));
 
             Init();
         }
@@ -185,23 +187,41 @@ namespace UI.ViewModels
             }
         }
 
-        private void OnExportData(object obj)
+        private void OnExportAppData(object obj)
         {
             try
             {
                 FolderBrowserDialog dialog = new FolderBrowserDialog();
-                dialog.Description = "请选择导出位置";
+                dialog.Description = "请选择应用数据导出位置";
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    data.ExportToExcel(dialog.SelectedPath, ExportDataStartMonthDate, ExportDataEndMonthDate);
-                    _webData.Export(dialog.SelectedPath, ExportDataStartMonthDate, ExportDataEndMonthDate);
-                    mainVM.Toast("导出数据完成", Controls.Window.ToastType.Success);
+                    data.ExportToExcel(dialog.SelectedPath, ExportDataStartMonthDate, ExportDataEndMonthDate, IsExportCsv);
+                    mainVM.Toast("应用数据导出完成", Controls.Window.ToastType.Success);
                 }
             }
             catch (Exception ec)
             {
                 Logger.Error(ec.ToString());
-                mainVM.Toast("导出数据失败", Controls.Window.ToastType.Error, Controls.Base.IconTypes.IncidentTriangle);
+                mainVM.Toast("应用数据导出失败", Controls.Window.ToastType.Error, Controls.Base.IconTypes.IncidentTriangle);
+            }
+        }
+
+        private void OnExportWebData(object obj)
+        {
+            try
+            {
+                FolderBrowserDialog dialog = new FolderBrowserDialog();
+                dialog.Description = "请选择网页数据导出位置";
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    _webData.Export(dialog.SelectedPath, ExportDataStartMonthDate, ExportDataEndMonthDate, IsExportCsv);
+                    mainVM.Toast("网页数据导出完成", Controls.Window.ToastType.Success);
+                }
+            }
+            catch (Exception ec)
+            {
+                Logger.Error(ec.ToString());
+                mainVM.Toast("网页数据导出失败", Controls.Window.ToastType.Error, Controls.Base.IconTypes.IncidentTriangle);
             }
         }
     }

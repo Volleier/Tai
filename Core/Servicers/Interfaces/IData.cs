@@ -97,7 +97,7 @@ namespace Core.Servicers.Interfaces
         /// <summary>
         /// 导出数据到EXCEL
         /// </summary>
-        void ExportToExcel(string dir, DateTime start, DateTime end);
+        void ExportToExcel(string dir, DateTime start, DateTime end, bool isCsv = false);
         /// <summary>
         /// 获取指定日期范围使用应用量
         /// </summary>

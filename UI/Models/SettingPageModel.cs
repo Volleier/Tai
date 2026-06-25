@@ -47,5 +47,11 @@ namespace UI.Models
 
         private DateTime ExportDataEndMonthDate_;
         public DateTime ExportDataEndMonthDate { get { return ExportDataEndMonthDate_; } set { ExportDataEndMonthDate_ = value; OnPropertyChanged(); } }
+
+        private bool isExportCsv_;
+        /// <summary>
+        /// 导出格式：false=xlsx，true=csv
+        /// </summary>
+        public bool IsExportCsv { get { return isExportCsv_; } set { isExportCsv_ = value; OnPropertyChanged(); } }
     }
 }

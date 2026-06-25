@@ -642,7 +642,7 @@ namespace Core.Servicers.Instances
             }
         }
 
-        public void ExportToExcel(string dir, DateTime start, DateTime end)
+        public void ExportToExcel(string dir, DateTime start, DateTime end, bool isCsv = false)
         {
             start = new DateTime(start.Year, start.Month, 1, 0, 0, 0);
             end = new DateTime(end.Year, end.Month, DateTime.DaysInMonth(end.Year, end.Month), 23, 59, 59);
@@ -660,39 +660,25 @@ namespace Core.Servicers.Instances
                         分类 = m.AppModel != null && m.AppModel.Category != null ? m.AppModel.Category.Name : "未知"
                     });
 
-                var hours = db.HoursLog.Where(m => m.DataTime >= start && m.DataTime <= end)
-                    .ToList()
-                    .Select(m => new
-                    {
-                        时段 = m.DataTime,
-                        应用 = m.AppModel != null ? m.AppModel.Name : "未知",
-                        描述 = m.AppModel != null ? m.AppModel.Description : "未知",
-                        时长 = m.Time,
-                        分类 = m.AppModel != null && m.AppModel.Category != null ? m.AppModel.Category.Name : "未知"
-                    });
-                var mapper = new Mapper();
-                mapper.Put(day, "每日");
-                mapper.Put(hours, "时段");
-
                 string name = $"Tai数据({start.ToString("yyyy年MM月")}-{end.ToString("yyyy年MM月")})";
                 if (start.Year == end.Year && start.Month == end.Month)
                 {
                     name = $"Tai数据({start.ToString("yyyy年MM月")})";
                 }
-                mapper.Save(Path.Combine(dir, $"{name}.xlsx"));
 
-                //  导出csv
-                //  UTF8Encoding(true) 生成带 BOM 的 UTF-8，确保 Excel 能正确识别中文编码
-                using (var writer = new StreamWriter(Path.Combine(dir, $"{name}-每日.csv"), false, new System.Text.UTF8Encoding(true)))
-                using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                if (isCsv)
                 {
-                    csv.WriteRecords(day);
+                    using (var writer = new StreamWriter(Path.Combine(dir, $"{name}.csv"), false, new System.Text.UTF8Encoding(true)))
+                    using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                    {
+                        csv.WriteRecords(day);
+                    }
                 }
-
-                using (var writer = new StreamWriter(Path.Combine(dir, $"{name}-时段.csv"), false, new System.Text.UTF8Encoding(true)))
-                using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                else
                 {
-                    csv.WriteRecords(hours);
+                    var mapper = new Mapper();
+                    mapper.Put(day, "每日");
+                    mapper.Save(Path.Combine(dir, $"{name}.xlsx"));
                 }
             }
         }

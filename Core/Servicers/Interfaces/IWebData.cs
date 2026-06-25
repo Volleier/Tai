@@ -167,7 +167,7 @@ namespace Core.Servicers.Interfaces
         /// <param name="dir_">导出目录</param>
         /// <param name="start_">开始时间</param>
         /// <param name="end_">结束时间</param>
-        void Export(string dir_, DateTime start_, DateTime end_);
+        void Export(string dir_, DateTime start_, DateTime end_, bool isCsv = false);
         /// <summary>
         /// 更新站点数据
         /// </summary>
