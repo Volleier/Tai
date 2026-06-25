@@ -910,7 +910,8 @@ namespace Core.Servicers.Instances
                 mapper.Save(Path.Combine(dir_, $"{name}.xlsx"));
 
                 //  导出csv
-                using (var writer = new StreamWriter(Path.Combine(dir_, $"{name}.csv"), false, System.Text.Encoding.UTF8))
+                //  UTF8Encoding(true) 生成带 BOM 的 UTF-8，确保 Excel 能正确识别中文编码
+                using (var writer = new StreamWriter(Path.Combine(dir_, $"{name}.csv"), false, new System.Text.UTF8Encoding(true)))
                 using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
                 {
                     csv.WriteRecords(webSiteData);
