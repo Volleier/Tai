@@ -1,0 +1,47 @@
+name: Build & Package
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build Tai
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Tai.sln
+
+      - name: Build (Debug)
+        run: dotnet build Tai.sln -c Debug --no-restore
+
+      - name: Build (Release)
+        run: dotnet build Tai.sln -c Release --no-restore
+
+      - name: Publish Release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tai-Release-${{ github.sha }}
+          path: |
+            UI/bin/Release/net48/Tai.exe
+            UI/bin/Release/net48/Tai.exe.config
+            UI/bin/Release/net48/*.dll
+            Core/bin/Release/net48/Core.dll
+            Core/bin/Release/net48/*.dll
+            Updater/bin/Release/net48/Updater.exe
+            Updater/bin/Release/net48/*.dll
+            TaiBug/bin/Release/net48/TaiBug.exe
+            UI/bin/Release/net48/x64/
+            UI/bin/Release/net48/x86/
+            WebExtensions/
