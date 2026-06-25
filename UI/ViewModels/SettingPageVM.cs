@@ -31,6 +31,7 @@ namespace UI.ViewModels
         public Command DelDataCommand { get; set; }
         public Command ExportAppDataCommand { get; set; }
         public Command ExportWebDataCommand { get; set; }
+        public Command SetExportFormatCommand { get; set; }
 
         public SettingPageVM(IAppConfig appConfig, MainViewModel mainVM, IData data, IWebData webData, IUIServicer uiServicer_)
         {
@@ -45,6 +46,7 @@ namespace UI.ViewModels
             DelDataCommand = new Command(new Action<object>(OnDelData));
             ExportAppDataCommand = new Command(new Action<object>(OnExportAppData));
             ExportWebDataCommand = new Command(new Action<object>(OnExportWebData));
+            SetExportFormatCommand = new Command(new Action<object>(OnSetExportFormat));
 
             Init();
         }
@@ -223,6 +225,16 @@ namespace UI.ViewModels
                 Logger.Error(ec.ToString());
                 mainVM.Toast("网页数据导出失败", Controls.Window.ToastType.Error, Controls.Base.IconTypes.IncidentTriangle);
             }
+        }
+
+        private void OnSetExportFormat(object obj)
+        {
+            bool isCsv = false;
+            if (obj is bool b)
+                isCsv = b;
+            else if (obj is string s && bool.TryParse(s, out var parsed))
+                isCsv = parsed;
+            IsExportCsv = isCsv;
         }
     }
 }
