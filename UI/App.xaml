@@ -17,6 +17,7 @@
             </Style>
 
             <ResourceDictionary.MergedDictionaries>
+                <!-- 默认浅色主题（确保启动时 DynamicResource 可解析）。切换主题时由 LoadTheme 自动移除 -->
                 <ResourceDictionary Source="/Tai;component/Resources/Themes/Light.xaml"/>
                 <ResourceDictionary Source="/Tai;component/Resources/Themes/Common.xaml"/>
 

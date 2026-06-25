@@ -37,17 +37,25 @@ namespace UI
 
         public App()
         {
-            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            //  早期启动诊断——定位启动崩溃位置
+            try
+            {
+                DispatcherUnhandledException += App_DispatcherUnhandledException;
 
 #if DEBUG
             DispatcherUnhandledException -= App_DispatcherUnhandledException;
-
 #endif
 
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            serviceProvider = serviceCollection.BuildServiceProvider();
-            Services = serviceProvider;
+                var serviceCollection = new ServiceCollection();
+                ConfigureServices(serviceCollection);
+                serviceProvider = serviceCollection.BuildServiceProvider();
+                Services = serviceProvider;
+            }
+            catch (Exception ex)
+            {
+                WriteStartupError(ex);
+                throw;
+            }
         }
 
         protected override void OnExit(ExitEventArgs e)
@@ -158,26 +166,51 @@ namespace UI
 
         private void OnStartup(object sender, StartupEventArgs e)
         {
-            //  阻止多开进程
-            if (IsRuned())
+            try
             {
+                //  阻止多开进程
+                if (IsRuned())
+                {
+                    Shutdown();
+                    return;
+                }
+
+                var main = serviceProvider.GetService<IMainServicer>();
+
+                bool isSelfStart = false;
+                if (e.Args.Length != 0)
+                {
+                    if (e.Args[0].Equals("--selfStart"))
+                    {
+                        isSelfStart = true;
+                    }
+                }
+                main.Start(isSelfStart);
+
+                //  创建保活窗口
+                keepaliveWindow = new HideWindow();
+            }
+            catch (Exception ex)
+            {
+                //  启动异常 → 写入诊断文件 + 提示用户 + 退出
+                WriteStartupError(ex);
+                MessageBox.Show($"Tai 启动失败:\n{ex.Message}\n\n详细信息已写入 startuperror.log", "启动错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
             }
+        }
 
-            var main = serviceProvider.GetService<IMainServicer>();
-
-            bool isSelfStart = false;
-            if (e.Args.Length != 0)
+        /// <summary>
+        /// 写入启动错误诊断文件到 exe 所在目录。
+        /// </summary>
+        private static void WriteStartupError(Exception ex)
+        {
+            try
             {
-                if (e.Args[0].Equals("--selfStart"))
-                {
-                    isSelfStart = true;
-                }
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startuperror.log");
+                string content = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}";
+                File.WriteAllText(path, content);
             }
-            main.Start(isSelfStart);
-
-            //  创建保活窗口
-            keepaliveWindow = new HideWindow();
+            catch { /* 写入失败则放弃 */ }
         }
     }
 }

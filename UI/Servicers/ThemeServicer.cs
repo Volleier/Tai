@@ -110,6 +110,21 @@ namespace UI.Servicers
                 MergedDictionaries.Remove(_currentControlDict);
             }
 
+            //  首次加载时，还需清理 App.xaml 中预加载的 Light.xaml 等旧主题字典。
+            //  这些字典不在引用追踪范围内（_currentThemeDict 初始为 null），
+            //  若不清理会排在 MergedDictionaries 最前面，导致新主题被覆盖失效。
+            if (this.themeName == null)
+            {
+                var preloaded = MergedDictionaries
+                    .Where(m => m.Source != null
+                        && themeOptions.Any(t => m.Source.OriginalString.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0))
+                    .ToList();
+                foreach (var dict in preloaded)
+                {
+                    MergedDictionaries.Remove(dict);
+                }
+            }
+
             MergedDictionaries.Add(themeDict);
             MergedDictionaries.Add(controlDict);
 
