@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <!-- Shared source link / deterministic build settings -->
+    <!-- All projects output to solution root bin\Debug or bin\Release -->
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>7.3</LangVersion>
     <PathMap>$(MSBuildProjectDirectory)=Tai</PathMap>
   </PropertyGroup>

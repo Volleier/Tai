@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./Tai.exe)",
+      "Bash(\"/c/Program Files/dotnet/dotnet\" build e:/Tai/Tai.sln -c Release --nologo)"
+    ]
+  }
+}
