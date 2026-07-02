@@ -58,6 +58,25 @@ namespace UI.Controls.SettingPanel
             SettingData = new Dictionary<string, List<string>>();
         }
 
+        /// <summary>
+        /// 浅克隆 configData 并更新字段引用，确保每次 Data 赋值都生成新的对象引用，
+        /// 从而可靠触发 WPF DependencyProperty 变更回调和 TwoWay 绑定更新。
+        /// </summary>
+        private object CloneConfigData()
+        {
+            var type = configData.GetType();
+            var clone = Activator.CreateInstance(type);
+            foreach (var prop in type.GetProperties())
+            {
+                if (prop.CanWrite)
+                {
+                    prop.SetValue(clone, prop.GetValue(configData));
+                }
+            }
+            configData = clone;
+            return clone;
+        }
+
         public override void OnApplyTemplate()
         {
             base.OnApplyTemplate();
@@ -359,7 +378,7 @@ namespace UI.Controls.SettingPanel
             {
                 pi.SetValue(configData, control.Color);
                 isCanRender = false;
-                Data = configData;
+                Data = CloneConfigData();
             };
 
             var item = new SettingPanelItem();
@@ -399,7 +418,7 @@ namespace UI.Controls.SettingPanel
                 pi.SetValue(configData, control.SelectedItem.Data);
 
                 isCanRender = false;
-                Data = configData;
+                Data = CloneConfigData();
             };
             //var inputControl = new Toggle.Toggle();
             //inputControl.ToggleChanged += (e, c) =>
@@ -426,7 +445,7 @@ namespace UI.Controls.SettingPanel
                 pi.SetValue(configData, inputControl.IsChecked);
 
                 isCanRender = false;
-                Data = configData;
+                Data = CloneConfigData();
             };
 
             inputControl.IsChecked = (bool)pi.GetValue(Data);

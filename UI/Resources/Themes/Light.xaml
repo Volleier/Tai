@@ -12,7 +12,7 @@
 
     <!--【通用笔刷】-->
     <!--主题颜色笔刷-->
-    <SolidColorBrush x:Key="ThemeBrush" Color="{StaticResource ThemeColor}" />
+    <SolidColorBrush x:Key="ThemeBrush" Color="{DynamicResource ThemeColor}" />
     <!---鼠标经过背景颜色-->
     <SolidColorBrush x:Key="HoverBackgroundBrush" Color="{StaticResource HoverBackgroundColor}" />
     <!--标准背景颜色-->

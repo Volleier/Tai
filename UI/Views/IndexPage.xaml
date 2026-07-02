@@ -84,8 +84,8 @@
 
                     <Charts:Charts IconSize="18" Grid.Row="1" Margin="0,5,0,0" IsCanScroll="False" ClickCommand="{Binding ToDetailCommand}" Data="{Binding WebFrequentUseData}" ChartsType="List" IsLoading="{Binding IsLoading,Mode=TwoWay}" ItemMenu="{Binding WebSiteContextMenu}">
                         <Charts:Charts.Resources>
-                            <SolidColorBrush x:Key="ListItemIconBgBrush" Color="{StaticResource ThemeColor}" Opacity=".2"/>
-                            <SolidColorBrush x:Key="ChartTypeListProgressBarBrush" Color="{StaticResource ThemeColor}" Opacity=".6"/>
+                            <SolidColorBrush x:Key="ListItemIconBgBrush" Color="{DynamicResource ThemeColor}" Opacity=".2"/>
+                            <SolidColorBrush x:Key="ChartTypeListProgressBarBrush" Color="{DynamicResource ThemeColor}" Opacity=".6"/>
                         </Charts:Charts.Resources>
                     </Charts:Charts>
                 </Grid>
