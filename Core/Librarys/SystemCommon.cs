@@ -19,34 +19,46 @@ namespace Core.Librarys
         /// <returns></returns>
         public static bool SetStartup(bool startup = true)
         {
+            bool result = false;
             string TaskName = "Tai task";
-            var logonUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
-            string tai = Path.Combine(
-                  AppDomain.CurrentDomain.BaseDirectory,
-                   "Tai.exe");
-            string taskDescription = "Tai开机自启服务";
 
-            using (var taskService = new TaskService())
+            try
             {
-                var tasks = taskService.RootFolder.GetTasks(new System.Text.RegularExpressions.Regex(TaskName));
-                foreach (var t in tasks)
-                {
-                    taskService.RootFolder.DeleteTask(t.Name);
-                }
+                var logonUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+                string tai = Path.Combine(
+                      AppDomain.CurrentDomain.BaseDirectory,
+                       "Tai.exe");
+                string taskDescription = "Tai开机自启服务";
 
-                if (startup)
+                using (var taskService = new TaskService())
                 {
-                    var task = taskService.NewTask();
-                    task.RegistrationInfo.Description = taskDescription;
-                    task.Triggers.Add(new LogonTrigger { UserId = logonUser });
-                    task.Principal.RunLevel = TaskRunLevel.Highest;
-                    task.Actions.Add(new ExecAction(tai, "--selfStart", AppDomain.CurrentDomain.BaseDirectory));
-                    task.Settings.StopIfGoingOnBatteries = false;
-                    task.Settings.DisallowStartIfOnBatteries = false;
-                    taskService.RootFolder.RegisterTaskDefinition(TaskName, task);
+                    var tasks = taskService.RootFolder.GetTasks(new System.Text.RegularExpressions.Regex(TaskName));
+                    foreach (var t in tasks)
+                    {
+                        taskService.RootFolder.DeleteTask(t.Name);
+                    }
+
+                    if (startup)
+                    {
+                        var task = taskService.NewTask();
+                        task.RegistrationInfo.Description = taskDescription;
+                        task.Triggers.Add(new LogonTrigger { UserId = logonUser });
+                        task.Principal.RunLevel = TaskRunLevel.LUA;
+                        task.Actions.Add(new ExecAction(tai, "--selfStart", AppDomain.CurrentDomain.BaseDirectory));
+                        task.Settings.StopIfGoingOnBatteries = false;
+                        task.Settings.DisallowStartIfOnBatteries = false;
+                        taskService.RootFolder.RegisterTaskDefinition(TaskName, task);
+                    }
+                    result = true;
                 }
             }
-            return false;
+            catch (Exception ex)
+            {
+                Logger.Error("[SetStartup] 任务计划程序方式失败: " + ex.Message);
+                //  回退到 Startup 文件夹快捷方式
+                result = Shortcut.SetStartup(startup);
+            }
+            return result;
         }
 
         public static string GetWindowsVersionName()

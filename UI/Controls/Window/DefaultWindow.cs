@@ -453,10 +453,7 @@ namespace UI.Controls.Window
         {
             ToastGrid.Visibility = Visibility.Visible;
             DialogBorder.Visibility = Visibility.Collapsed;
-            if (InputModalBorder?.Visibility != Visibility.Visible)
-            {
-                InputModalBorder.Visibility = Visibility.Collapsed;
-            }
+            InputModalBorder.Visibility = Visibility.Collapsed;
             ToastBorder.Visibility = Visibility.Visible;
             Storyboard storyboard = new Storyboard();
 
@@ -481,10 +478,7 @@ namespace UI.Controls.Window
                 ToastGrid.MouseLeftButtonDown += ToastGrid_MouseLeftButtonDown;
             };
             storyboard.Children.Add(scrollAnimation);
-            if (InputModalBorder?.Visibility != Visibility.Visible)
-            {
-                storyboard.Children.Add(opacityAnimation);
-            }
+            storyboard.Children.Add(opacityAnimation);
             storyboard.Begin();
         }
 
@@ -515,14 +509,11 @@ namespace UI.Controls.Window
             opacityAnimation.Duration = new Duration(TimeSpan.FromSeconds(0.25));
 
             storyboard.Children.Add(scrollAnimation);
-            if (InputModalBorder?.Visibility != Visibility.Visible)
+            storyboard.Children.Add(opacityAnimation);
+            storyboard.Completed += (e, c) =>
             {
-                storyboard.Children.Add(opacityAnimation);
-                storyboard.Completed += (e, c) =>
-                {
-                    ToastGrid.Visibility = Visibility.Collapsed;
-                };
-            }
+                ToastGrid.Visibility = Visibility.Collapsed;
+            };
 
             storyboard.Begin();
         }
@@ -662,6 +653,7 @@ namespace UI.Controls.Window
             storyboard.Children.Add(opacityAnimation);
             storyboard.Completed += (e, c) =>
             {
+                InputModalBorder.Visibility = Visibility.Collapsed;
                 ToastGrid.Visibility = Visibility.Collapsed;
             };
             storyboard.Begin();

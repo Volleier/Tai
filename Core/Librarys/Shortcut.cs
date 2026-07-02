@@ -46,11 +46,12 @@ namespace Core.Librarys
                     "Tai.lnk");
             if (startup)
             {
+                //  先删除旧快捷方式再创建，确保参数是最新的
                 if (File.Exists(path))
                 {
-                    return true;
+                    File.Delete(path);
                 }
-                return CreateShortcut(path, "");
+                return CreateShortcut(path, "--selfStart");
             }
             else
             {

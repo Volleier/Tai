@@ -199,10 +199,11 @@
                                             </Grid>
                                         </Border>
                                         <!--Dialog-->
-                                        <Border 
+                                        <Border
      Padding="15,15"
      CornerRadius="10"
      Width="300"
+     Visibility="Collapsed"
      x:Name="DialogBorder" Background="White" HorizontalAlignment="Center" VerticalAlignment="Top" Panel.ZIndex="1000">
                                             <Border.RenderTransform>
                                                 <TransformGroup>
@@ -227,10 +228,11 @@
                                             </Grid>
                                         </Border>
                                         <!--Dialog-->
-                                        <Border 
+                                        <Border
      Padding="15,15"
      CornerRadius="10"
      Width="350"
+     Visibility="Collapsed"
      x:Name="InputModalBorder" Background="White" HorizontalAlignment="Center" VerticalAlignment="Top" Panel.ZIndex="1000">
                                             <Border.RenderTransform>
                                                 <TransformGroup>

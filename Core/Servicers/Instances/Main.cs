@@ -93,7 +93,14 @@ namespace Core.Servicers.Instances
             {
                 Logger.Tag("[Config]", "配置已变更");
                 //  处理开机自启
-                SystemCommon.SetStartup(newConfig.General.IsStartatboot);
+                try
+                {
+                    SystemCommon.SetStartup(newConfig.General.IsStartatboot);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("[Config] 设置开机自启失败: " + ex.Message);
+                }
 
                 //  更新忽略规则
                 UpdateConfigIgnoreProcess();
